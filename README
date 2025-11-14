@@ -1,1 +1,9 @@
 README
+
+
+## Data availability
+
+Raw phosphoproteomics and proteome CSVs for all figures are provided as
+release assets:
+
+- [Download R2HaPpY raw data (v1.0)](https://github.com/alexis-cmyk/ManuscriptCodeShare_R2HaPpY/releases/tag/v1.0.0-data)
