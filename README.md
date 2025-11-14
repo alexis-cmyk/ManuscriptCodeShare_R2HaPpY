@@ -1,10 +1,3 @@
----
-title: "README"
-author: "Alexis Chang"
-date: "`r Sys.Date()`"
-output: html_document
----
-
 
 # Phosphotyrosine Proteomics Using a Scalable SH2 Superbinder Enrichment Strategy
 
