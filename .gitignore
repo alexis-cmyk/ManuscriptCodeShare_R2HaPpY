@@ -2,3 +2,5 @@
 .Rhistory
 .RData
 .Ruserdata
+# Ignore huge raw data
+raw_data/
