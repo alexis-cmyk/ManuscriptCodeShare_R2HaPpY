@@ -4,3 +4,4 @@
 .Ruserdata
 # Ignore huge raw data
 raw_data/
+*.zip
