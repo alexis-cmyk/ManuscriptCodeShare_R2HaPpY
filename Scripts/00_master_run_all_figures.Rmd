@@ -3085,6 +3085,11 @@ ggsave(filename = "output/MainFig2/my_pYsite_correlation.pdf", plot = my_pYsite_
 # 
 # pYsite_correlation_interactive
 # 
+<<<<<<< HEAD
+=======
+# # install.packages("heatmaply")
+# # library(heatmaply)
+>>>>>>> 772aa4e140f641fc944e56f2759158388d885e8b
 
 ```
 
@@ -31394,6 +31399,7 @@ ggsave("output/SuppFig7/distinct_pY_sites_condition_wPTS.pdf", plot = plot_disti
 
 #SUPP FIG 8 --------------------
 
+<<<<<<< HEAD
 
 ---
 title: "BeadAge_4months"
@@ -32486,3 +32492,5 @@ ggsave(filename = "output/SuppFig8/CVs_YES_normalized_pY.png", plot = psite_reps
 ggsave(filename = "output/SuppFig8/CVs_YES_normalized_pY.pdf", plot = psite_reps_CVs_YESnorm_pY, width = 4, height = 8, scale = 0.4)
 ```
 
+=======
+>>>>>>> 772aa4e140f641fc944e56f2759158388d885e8b

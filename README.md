@@ -49,8 +49,13 @@ Processed and intermediate data tables used in the figure-generation scripts (e.
 
 All figures in the manuscript can be regenerated using:
 
+<<<<<<< HEAD
 - `Scripts/00_master_run_all_figures.R`
 - Individual figure-specific scripts in `Scripts` within subdirectories title by figure(s).
+=======
+- `R/00_master_run_all_figures.R`
+- Individual figure-specific scripts in `Scripts`
+>>>>>>> 772aa4e140f641fc944e56f2759158388d885e8b
 - A Shiny application enabling interactive re-analysis and visualization (`shiny/`)
 
 Dependencies are managed using **renv**.  
