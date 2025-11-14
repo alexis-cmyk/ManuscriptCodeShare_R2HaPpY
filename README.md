@@ -51,12 +51,15 @@ Processed and intermediate data tables used in the figure-generation scripts (e.
 All figures in the manuscript can be regenerated using:
 
 
-- `Scripts/00_master_run_all_figures.R`
-- Individual figure-specific scripts in `Scripts` within subdirectories title by figure(s).
-- `R/00_master_run_all_figures.R`
-- Individual figure-specific scripts in `Scripts`
+- Individual figure-specific scripts titled by figure(s).
+- Figures are deposited into figure-specific subdirectories within `output`
+- Tables are depositied into figure-specific subdirectories within `modified_data`
 
-- A Shiny application enabling interactive re-analysis and visualization (`shiny/`)
+- To generate all figures with one command, in console within this Rproject, run: `source("00_master_run_all_figures.R")`
+- This file points to each figure specific script: `R/00_master_run_all_figures.R`
+
+
+- A Shiny application enabling interactive re-analysis and visualization (`shiny/`) at https://r2happy.gs.washington.edu*
 
 Dependencies are managed using **renv**.  
 To reproduce the full environment:

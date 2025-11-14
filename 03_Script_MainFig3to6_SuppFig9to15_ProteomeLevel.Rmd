@@ -21,7 +21,6 @@ library(cowplot)
 library(reshape2)
 library(eulerr)
 library(protti)
-
 library(iq)
 library(RColorBrewer)
 #for PCA loadings
@@ -107,7 +106,7 @@ alexis_theme <- function() {
 
 AC080_CONTROL_6_tp_60mDDA_0.5ug
 ```{r}
-comet <- read_csv("raw_data/MainFig3to6_SuppFig9to15/Proteome/AC080_tp_comet/result.csv") %>%
+comet <- read_csv("raw_data/MainFig3to6_SuppFig9to15/Proteome/comet/result.csv") %>%
   clean_names() %>%
   separate(col = sample_name,
            into = c("exp", "condition","replicate", "fraction", "MSmethod", "inj_amt"), sep = "_", remove = FALSE) %>%
@@ -594,7 +593,7 @@ peptide_CVs_normalized
 protein_CVs_NOTnormalized <- qc_cvs(
   data = df_sum_to_protein, 
   grouping = reference, 
-  condition = condition_numeric, 
+  condition = condition_alpha, 
   intensity = sum_peptide_to_protein,
   plot = TRUE,
   plot_style = "boxplot")
@@ -605,7 +604,7 @@ protein_CVs_NOTnormalized
 protein_CVs_normalized <- qc_cvs(
   data = df_sum_to_protein, 
   grouping = reference, 
-  condition = condition_numeric, 
+  condition = condition_alpha, 
   intensity = raw_norm_intensity_protein,
   plot = TRUE,
   max_cv = 100,

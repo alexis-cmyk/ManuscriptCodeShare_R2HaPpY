@@ -1,5 +1,5 @@
 ---
-title: "Halo_HeLa_pept_concn_A"
+title: "VaryPeptideConcentration_HigpTyrContent"
 author: "Alexis Chang"
 date: "2024-05-09"
 output: html_document
@@ -428,7 +428,6 @@ library(cowplot)
 library(reshape2)
 library(eulerr)
 library(protti)
-library(diann)
 library(iq)
 library(RColorBrewer)
 #for PCA loadings
@@ -445,10 +444,10 @@ library(UpSetR)
    -> prepare Yeast + Vsrc FASTA
    Downloaded from Zucchini on 1May2023, but pulled from uniprot by Bianca Ruiz in April 2017. K12 strain, swiss prot (reviewed entries only)
 ```{r}
-human_fasta_2024 <- read_csv("raw_data/sp_reviewed_UP000005640_2024_03_21_forR.csv")
+human_fasta_2024 <- read_csv("raw_data/MainFig2/sp_reviewed_UP000005640_2024_03_21_forR.csv")
 
 
-haloTEVsSrc <- read_csv("raw_data/haloTEVsSrc_forR.csv") %>%
+haloTEVsSrc <- read_csv("raw_data/MainFig2/haloTEVsSrc_forR.csv") %>%
   clean_names() %>% 
   mutate(
     reference = "HalosSrcV2",
@@ -458,7 +457,7 @@ haloTEVsSrc <- read_csv("raw_data/haloTEVsSrc_forR.csv") %>%
     protein_names = NA)
 
 
-Ecoli_fasta_2017 <- read_csv("raw_data/Ecoli_K12_uniprot_April2017_BR_forR.csv") %>%
+Ecoli_fasta_2017 <- read_csv("raw_data/MainFig2/Ecoli_K12_uniprot_April2017_BR_forR.csv") %>%
   clean_names() %>% 
   mutate(
     organism = "E.coli",
@@ -476,7 +475,7 @@ human_fasta_w_bg <- rbind(human_fasta_2024, haloTEVsSrc, Ecoli_fasta_2017)
 ###__i) comet
 ```{r}
 
-comet <- read_csv("raw_data/MainFig2/AC078_hiRes_comet/result.csv") %>%
+comet <- read_csv("raw_data/MainFig2/comet/result.csv") %>%
   clean_names() %>%
   separate(sample_name, into = c("exp", "lysate", "well", "pept_amt","condition", "inj_vol", "rep"), sep = "_", remove = FALSE) %>% 
   filter(lysate == "HFPV") %>%
@@ -523,7 +522,7 @@ comet %>% distinct(raw_file_name, condition, replicate)
 ###__i) ascore
 ```{r}
 
-  ascore <- read_csv("raw_data/MainFig2/AC078_hiRes_ascore/result.csv") %>%
+  ascore <- read_csv("raw_data/MainFig2/ascore/result.csv") %>%
   clean_names() %>%
   separate(sample_name, into = c("exp", "lysate", "well", "pept_amt","condition", "inj_vol", "rep"), sep = "_", remove = FALSE) %>% 
   filter(lysate == "HFPV") %>%
@@ -1577,21 +1576,6 @@ ggsave(filename = "output/MainFig2/my_pYsite_correlation.png", plot = my_pYsite_
 ggsave(filename = "output/MainFig2/my_pYsite_correlation.pdf", plot = my_pYsite_correlation, width = 14, height = 12, scale = 0.4)
 ```
 
-```{r}
-# pYsite_correlation_interactive <- qc_sample_correlation(
-#   data = ascore_stringent_fasta_pYsite,
-#   sample = sample_id, 
-#   grouping = ref, 
-#   intensity_log2 = median_norm_intensity,
-#   condition = condition,
-#   # method = "pearson",
-#   interactive =  TRUE)
-# 
-# pYsite_correlation_interactive
-# 
-# # install.packages("heatmaply")
-# # library(heatmaply)
 
-```
 
 

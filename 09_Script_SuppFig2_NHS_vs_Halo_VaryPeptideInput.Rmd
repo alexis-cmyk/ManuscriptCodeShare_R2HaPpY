@@ -1,5 +1,5 @@
 ---
-title: "NHS_vs_Halo_20241223_1mg triplicate"
+title: "NHS_vs_Halo_VaryInputAmount"
 author: "Alexis Chang"
 date: "`r Sys.Date()`"
 output: html_document
@@ -629,23 +629,23 @@ my_hier_cluster <- function (data,
 
 #II. FASTAs
 ```{r}
-human_fasta_2024 <- read_csv("raw_data/sp_reviewed_UP000005640_2024_03_21_forR.csv")
+human_fasta_2024 <- read_csv("raw_data/SuppFig2/sp_reviewed_UP000005640_2024_03_21_forR.csv")
 
 
 ## just to convert PTMSEA gene names to uniprot ID references
-# fasta_gene_names <- read_tsv(file = "raw_data/uniprotkb_proteome_UP000005640_2024_09_04.tsv") %>%
+# fasta_gene_names <- read_tsv(file = "raw_data/SuppFig2/uniprotkb_proteome_UP000005640_2024_09_04.tsv") %>%
 #   clean_names() %>% 
 #   #many gene names per uniprot reference, hope first gene name matches,
 #   #otherwise figure out if secondary matches improve join.
 #   separate(gene_names, into = c("gene", "gene2", "gene3", "gene4", "gene5", "gene6"), remove = FALSE)
 
-# fasta_subcellular_location <- read_tsv("raw_data/uniprotkb_proteome_UP000005640_2024_10_16_locations.txt") %>% clean_names() %>% 
+# fasta_subcellular_location <- read_tsv("raw_data/SuppFig2/uniprotkb_proteome_UP000005640_2024_10_16_locations.txt") %>% clean_names() %>% 
 #   rename(reference = entry) %>% 
 #   filter(grepl("HUMAN", sequence) == FALSE) #remove titin which was annotated oddly
 
 
 ##fasta with functions, subcellular component and cellular location.
-# fxns_fasta <- read_tsv(file = "raw_data/fxns_UP000005640_2024_11_05.tsv") %>% clean_names() %>% 
+# fxns_fasta <- read_tsv(file = "raw_data/SuppFig2/fxns_UP000005640_2024_11_05.tsv") %>% clean_names() %>% 
 #   rename(gene_names = gene)
 ```
 
@@ -655,7 +655,7 @@ human_fasta_2024 <- read_csv("raw_data/sp_reviewed_UP000005640_2024_03_21_forR.c
 AC063_A1_16uL
 ```{r}
 
-comet <- read_csv("raw_data/SuppFig2/AC063_1_pept_input_range_20241224_comet/result.csv") %>% #ascore and comet files were switched & didn't bother to rename file.
+comet <- read_csv("raw_data/SuppFig2/comet/result.csv") %>% #ascore and comet files were switched & didn't bother to rename file.
   clean_names() %>% 
   separate(col = sample_name, into = c("experiment",  "R2P2_well", "inj_vol"), sep = "_", remove = FALSE) %>% 
    
@@ -888,7 +888,7 @@ write_csv(sample_info_for_PRIDE, file = "modified_data/SuppFig2/HiResAscore_2024
 
 ##_b. ASCORE
 ```{r}
-ascore <- read_csv("raw_data/SuppFig2/AC063_1_pept_input_range_20241224_ascore/result.csv") %>% #ascore and comet files were switched & didn't bother to rename file.
+ascore <- read_csv("raw_data/SuppFig2/ascore/result.csv") %>% #ascore and comet files were switched & didn't bother to rename file.
 
   clean_names() %>% 
   separate(col = sample_name, into = c("experiment",  "R2P2_well", "inj_vol"), sep = "_", remove = FALSE) %>%  

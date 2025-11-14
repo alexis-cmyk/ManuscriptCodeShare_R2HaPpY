@@ -1,5 +1,5 @@
 ---
-title: "NHS_vs_Halo_20241223_HiResAscore"
+title: "NHS_vs_Halo_1mg_triplicate"
 author: "Alexis Chang"
 date: "`r Sys.Date()`"
 output: html_document
@@ -16,7 +16,6 @@ library(cowplot)
 library(reshape2)
 library(eulerr)
 library(protti)
-library(diann)
 library(iq)
 library(RColorBrewer)
 #for PCA loadings
@@ -430,23 +429,23 @@ my_hier_cluster <- function (data,
 
 #II. FASTAs
 ```{r}
-human_fasta_2024 <- read_csv("raw_data/sp_reviewed_UP000005640_2024_03_21_forR.csv")
+human_fasta_2024 <- read_csv("raw_data/MainAndSuppFig1/sp_reviewed_UP000005640_2024_03_21_forR.csv")
 
 
 ## just to convert PTMSEA gene names to uniprot ID references
-# fasta_gene_names <- read_tsv(file = "raw_data/uniprotkb_proteome_UP000005640_2024_09_04.tsv") %>%
+# fasta_gene_names <- read_tsv(file = "raw_data/MainAndSuppFig1/uniprotkb_proteome_UP000005640_2024_09_04.tsv") %>%
 #   clean_names() %>% 
 #   #many gene names per uniprot reference, hope first gene name matches,
 #   #otherwise figure out if secondary matches improve join.
 #   separate(gene_names, into = c("gene", "gene2", "gene3", "gene4", "gene5", "gene6"), remove = FALSE)
 
-# fasta_subcellular_location <- read_tsv("raw_data/uniprotkb_proteome_UP000005640_2024_10_16_locations.txt") %>% clean_names() %>% 
+# fasta_subcellular_location <- read_tsv("raw_data/MainAndSuppFig1/uniprotkb_proteome_UP000005640_2024_10_16_locations.txt") %>% clean_names() %>% 
 #   rename(reference = entry) %>% 
 #   filter(grepl("HUMAN", sequence) == FALSE) #remove titin which was annotated oddly
 
 
 ##fasta with functions, subcellular component and cellular location.
-# fxns_fasta <- read_tsv(file = "raw_data/fxns_UP000005640_2024_11_05.tsv") %>% clean_names() %>% 
+# fxns_fasta <- read_tsv(file = "raw_data/MainAndSuppFig1/fxns_UP000005640_2024_11_05.tsv") %>% clean_names() %>% 
 #   rename(gene_names = gene)
 ```
 
@@ -455,7 +454,7 @@ human_fasta_2024 <- read_csv("raw_data/sp_reviewed_UP000005640_2024_03_21_forR.c
 ##_a. COMET
 ```{r}
 
-comet <- read_csv("raw_data/MainAndSuppFig1/AC063_NHS_vs_Halo_HiResAscore_ascore/result.csv") %>% #ascore and comet files were switched & didn't bother to rename file.
+comet <- read_csv("raw_data/MainAndSuppFig1/ascore/result.csv") %>% #ascore and comet files were switched & didn't bother to rename file.
   clean_names() %>% 
   separate(col = sample_name, into = c("experiment", "exp3", "condition", "R2P2_well", "inj_vol"), sep = "_", remove = FALSE) %>% 
    
@@ -479,7 +478,7 @@ comet <- read_csv("raw_data/MainAndSuppFig1/AC063_NHS_vs_Halo_HiResAscore_ascore
 
 ##_b. ASCORE
 ```{r}
-ascore <- read_csv("raw_data/MainAndSuppFig1/AC063_NHS_vs_Halo_HiResAscore_comet/result.csv") %>% #ascore and comet files were switched & didn't bother to rename file.
+ascore <- read_csv("raw_data/MainAndSuppFig1/comet/result.csv") %>% #ascore and comet files were switched & didn't bother to rename file.
 
   clean_names() %>% 
   separate(col = sample_name, into = c("experiment", "exp3", "condition", "R2P2_well", "inj_vol"), sep = "_", remove = FALSE) %>%  

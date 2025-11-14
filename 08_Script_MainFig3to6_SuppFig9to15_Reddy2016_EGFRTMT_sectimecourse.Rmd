@@ -11,7 +11,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 
 ```{r}
-EGF100nM <- read_csv(file = "raw_data/MainFig3to6_SuppFig9to15/EGF100nM.csv") %>% 
+EGF100nM <- read_csv(file = "raw_data/MainFig3to6_SuppFig9to15/Reddy2016/EGF100nM.csv") %>% 
   clean_names() %>% 
   # separate(sites, into = c("mod_site1", "mod_site2"), sep = " ", remove = FALSE) %>% 
   # pivot_longer(cols = c("mod_site1", "mod_site2"), names_to = "mod_site_num", values_to = "mod_site" ) %>% 
@@ -143,7 +143,7 @@ write_csv(x = net_pY_sites_Reddy2016_EGF100nM, file = "modified_data/MainFig3to6
 
 #### . . id mapping
 ```{r}
-id_mapping <- read_csv(file = "raw_data/MainFig3to6_SuppFig9to15/ID_mapping_20250424.csv") %>% 
+id_mapping <- read_csv(file = "raw_data/MainFig3to6_SuppFig9to15/Reddy2016/ID_mapping_20250424.csv") %>% 
   group_by(gene) %>% 
   mutate(
     reference_number = row_number()) %>% 

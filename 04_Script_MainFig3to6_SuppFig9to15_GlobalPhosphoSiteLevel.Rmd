@@ -23,7 +23,6 @@ library(cowplot)
 library(reshape2)
 library(eulerr)
 library(protti)
-# library(diann)
 library(iq)
 library(RColorBrewer)
 #for PCA loadings
@@ -272,18 +271,18 @@ my_hier_cluster <- function (data,
 
 #FASTAs
 ```{r}
-human_fasta_2024 <- read_csv("raw_data/sp_reviewed_UP000005640_2024_03_21_forR.csv")
+human_fasta_2024 <- read_csv("raw_data/MainFig3to6_SuppFig9to15/sp_reviewed_UP000005640_2024_03_21_forR.csv")
 
 
 #just to convert PTMSEA gene names to uniprot ID references
-fasta_gene_names <- read_tsv(file = "raw_data/uniprotkb_proteome_UP000005640_2024_09_04.tsv") %>%
+fasta_gene_names <- read_tsv(file = "raw_data/MainFig3to6_SuppFig9to15/uniprotkb_proteome_UP000005640_2024_09_04.tsv") %>%
   clean_names() %>% 
   #many gene names per uniprot reference, hope first gene name matches,
   #otherwise figure out if secondary matches improve join.
   separate(gene_names, into = c("gene", "gene2", "gene3", "gene4", "gene5", "gene6"), remove = FALSE)
 
 #subcellular location analysis:
-fasta_subcellular_location <- read_tsv("raw_data/uniprotkb_proteome_UP000005640_2024_10_16_locations.txt") %>% clean_names() %>% 
+fasta_subcellular_location <- read_tsv("raw_data/MainFig3to6_SuppFig9to15/uniprotkb_proteome_UP000005640_2024_10_16_locations.txt") %>% clean_names() %>% 
   rename(reference = entry) %>% 
   filter(grepl("HUMAN", sequence) == FALSE) #remove titin which was annotated oddly
 ```
@@ -292,7 +291,7 @@ fasta_subcellular_location <- read_tsv("raw_data/uniprotkb_proteome_UP000005640_
 #pathways
 ##PTMSEA
 ```{r}
-EGFR1_pathway <- read_csv("raw_data/EGFR1_phosphopathway_PTMSEA.csv") %>% clean_names() %>%
+EGFR1_pathway <- read_csv("raw_data/MainFig3to6_SuppFig9to15/EGFR1_phosphopathway_PTMSEA.csv") %>% clean_names() %>%
   left_join(y = fasta_gene_names, by = "gene", relationship = "many-to-many") %>%  #match on gene1 worked!
   select(-c(gene_names : gene6)) %>% 
   rename(reference = entry) %>% 
@@ -304,23 +303,23 @@ EGFR1_pathway <- read_csv("raw_data/EGFR1_phosphopathway_PTMSEA.csv") %>% clean_
 ```
 ##Phosphopedia
 ```{r}
-ppdia_ErbB_signaling <- read_csv(file = "raw_data/Phosphopedia_ErbB_gene_sites.csv") %>% 
+ppdia_ErbB_signaling <- read_csv(file = "raw_data/MainFig3to6_SuppFig9to15/Phosphopedia_ErbB_gene_sites.csv") %>% 
   clean_names()
 ```
 
 #III. PSITE LISTS
 ##_a. PSP all p-sites
 ```{r}
-# PSP_all <- read_csv(file = "raw_data/Phosphorylation_site_dataset/Phosphorylation_site_dataset.csv") %>% clean_names() %>%
+# PSP_all <- read_csv(file = "raw_data/MainFig3to6_SuppFig9to15/Phosphorylation_site_dataset/Phosphorylation_site_dataset.csv") %>% clean_names() %>%
 #   filter(organism == "human") %>% 
 #   mutate(mod_rsd = str_replace_all(mod_rsd, "-p", ""),
 #          mod_res = str_sub(mod_rsd, end = 1L)) %>% 
 #   rename(psite = mod_rsd) %>% 
 #   mutate(gene_ref = paste(gene, psite, sep = "_"))
 
-# write_csv(x = PSP_all, file = "raw_data/PSP_all_psites.csv")
+# write_csv(x = PSP_all, file = "raw_data/MainFig3to6_SuppFig9to15/PSP_all_psites.csv")
 
-PSP_all <- read_csv ("raw_data/PSP_all_psites.csv")
+PSP_all <- read_csv ("raw_data/MainFig3to6_SuppFig9to15/PSP_all_psites.csv")
 ```
 
 
@@ -336,7 +335,7 @@ then join to PSP_EGFR dataset. Then collapse to unique gene and mod_res (removin
 keep gene.x as gene (MAPK1, not MK01)
  
 ```{r}
-EGFR1_pathway_PTMSigDB <- read_csv("raw_data/EGFR1_phosphopathway_PTMSEA.csv") %>% clean_names() %>%
+EGFR1_pathway_PTMSigDB <- read_csv("raw_data/MainFig3to6_SuppFig9to15/EGFR1_phosphopathway_PTMSEA.csv") %>% clean_names() %>%
   filter(str_sub(psite, end = 1L) %in% c("S", "T", "Y")) %>% 
   # left_join(y = human_fasta_2024 %>% separate(gene, into = c("gene", "organism_del"), sep = "_", remove = TRUE), by = "gene") %>% 
   left_join(y = fasta_gene_names, by = "gene", relationship = "many-to-many") %>%  #match on gene1 worked!
@@ -373,7 +372,7 @@ EGFR1_pathway_PTMSigDB <- read_csv("raw_data/EGFR1_phosphopathway_PTMSEA.csv") %
 The PTMSigDB dataset is less easy to join a full_protein_sequence and  reference to because we just have gene names, and the fasta_gene_names dataframe has many different references per gene name. Therefore, I guess the best option I have here is to take the first protein sequence per gene type.
 ##_c. Phosphopedia ErbB
 ```{r}
-# ppdia_ErbB_signaling <- read_csv(file = "raw_data/Phosphopedia_ErbB_gene_sites.csv") %>% 
+# ppdia_ErbB_signaling <- read_csv(file = "raw_data/MainFig3to6_SuppFig9to15/Phosphopedia_ErbB_gene_sites.csv") %>% 
 #   clean_names() %>% 
 #   rename(mod_residue = psite) %>%
 #   mutate(PPDIA = TRUE,
@@ -387,7 +386,7 @@ The PTMSigDB dataset is less easy to join a full_protein_sequence and  reference
    
    
 ```{r}
-PSP_EGFR <- read_csv(file = "raw_data/PSP_EGF_all_20241219.csv") %>% 
+PSP_EGFR <- read_csv(file = "raw_data/MainFig3to6_SuppFig9to15/PSP_EGF_all_20241219.csv") %>% 
   clean_names() %>% 
   filter(organism == "human") %>% #just human sites
   rename(reference = acc_id) %>% 
@@ -473,7 +472,7 @@ ggsave(filename = "output/MainFig3to6_SuppFig9to15/GlobalPhosphoSiteLevel/overla
 
 ##_f. WP437 EGFR node depths
 ```{r}
-WP437_EGFR_node_depths <- read_csv(file = "raw_data/EGFR_WP437_node_depths.csv") %>%  clean_names()
+WP437_EGFR_node_depths <- read_csv(file = "raw_data/MainFig3to6_SuppFig9to15/EGFR_WP437_node_depths.csv") %>%  clean_names()
 ```
 
 #raw data import
@@ -481,7 +480,7 @@ WP437_EGFR_node_depths <- read_csv(file = "raw_data/EGFR_WP437_node_depths.csv")
 ##comet
 ```{r}
 
-comet <- read_csv("raw_data/MainFig3to6_SuppFig9to15/GlobalPhospho/AC080_all_comet/result.csv") %>%
+comet <- read_csv("raw_data/MainFig3to6_SuppFig9to15/GlobalPhospho/comet/result.csv") %>%
   clean_names() %>% 
   separate(col = sample_name, into = c("experiment", "enrichment", "condition", "replicate", "R2P2_well", "MS_method", "inj_vol"), sep = "_", remove = FALSE) %>%
   filter(grepl("tc", condition) == FALSE) %>% 
@@ -496,7 +495,7 @@ comet <- read_csv("raw_data/MainFig3to6_SuppFig9to15/GlobalPhospho/AC080_all_com
 
 ##ascore
 ```{r}
-ascore <- read_csv("raw_data/MainFig3to6_SuppFig9to15/GlobalPhospho/AC080_all_ascore/result.csv") %>%
+ascore <- read_csv("raw_data/MainFig3to6_SuppFig9to15/GlobalPhospho/ascore/result.csv") %>%
   clean_names() %>% 
   separate(col = sample_name, into = c("experiment", "enrichment", "condition", "replicate", "R2P2_well", "MS_method", "inj_vol"), sep = "_", remove = FALSE) %>% 
   filter(grepl("tc", condition) == FALSE) %>%
@@ -2404,63 +2403,56 @@ AHA! so I can detect the dual phospho of MAPK1 (Thr and Tyr). The differential a
 
 ###__i. function to iterate through my data
 ```{r}
-boxplot_gene_psite_function <- function(vector_gene_refs, dataframe, output_dir = "output/MainFig3to6_SuppFig9to15/GlobalPhosphoSiteLevel/boxplot_points2/", condition = condition, sample_id = sample_id, strip_color = "gray80", strip_text_color = "black"){
-
-  #create output directory if it doesn't exist already
-  if (!dir.exists(output_dir)){
-    dir.create(output_dir)}
-  
-  for (gene_var in vector_gene_refs) {
-    if(gene_var %in% dataframe$gene_ref) {
-      
-      #create boxplot for any sites in each gene
-      p <- ggplot() + 
-        geom_boxplot(data = dataframe %>% filter(gene_ref == gene_var),
-               mapping = aes(x = condition, y = median_norm_intensity), show.legend = FALSE, alpha = 0.3, outlier.color = NA, width = 0.5) +
-        geom_point(data = dataframe %>% filter(gene_ref == gene_var),
-                   mapping = aes(x = condition, y = median_norm_intensity),
-                   fill = "grey",
-                   mod_residue = position_jitter( width = 0.15, height = 0), shape = 21, alpha = 0.5, size = 1.5, show.legend = FALSE) +
-        geom_text(data = dataframe %>%
-        filter(gene_ref == gene_var) %>%
-          mutate(max_intensity_condition = max(median_norm_intensity)) %>% 
-        distinct(condition, gene_ref, n_obs,max_intensity_condition),
-        aes(x = condition, y = max_intensity_condition + 1, label = n_obs),size = 4, show.legend = FALSE, fontface = "bold") +
-        alexis_theme() +
-        
-        facet_wrap(facets = vars(gene_ref), nrow = 4) +
-        scale_y_continuous(name = expression("Log" [2]* "(intensity)"), expand = c(0.05,0.2))  +
-        scale_x_discrete(
-          "EGF treatment duration\n(minutes)",
-          drop = FALSE,
-          # limits = c("untreated", "1 min", "3 min", "5 min", "15 min"),
-          labels = c("0", "1", "3", "5", "15")) +
-        # theme(axis.text.x = element_text(angle = -90, hjust = 0.5, vjust = 0.5)) +
-        theme(
-          
-          strip.background = element_rect(fill = adjustcolor( strip_color, alpha.f = 0.3)),
-          strip.text = element_text(size = 16, face = "bold", family = "sans", color = strip_text_color)) #+
-        # expand_limits(y = c(15, 35)) 
-      
-      # save the plot as PNG & PDF
-      ggsave(filename = file.path(output_dir, paste0(gene_var, "_boxplot_points1.png")), plot = p, width = 8, height = 8, scale = 0.4)
-      ggsave(filename = file.path(output_dir, paste0(gene_var, "_boxplot_points1.pdf")), plot = p, width = 8, height = 8, scale = 0.4)
-      
-    } else { 
-      message (paste("Gene", gene_var, "not found in the dataframe."))
-      
-      }
-    }
-}
-
-# "#FFF5F0" "#FEE0D2" "#FCBBA1" "#FC9272" "#FB6A4A" "#EF3B2C" "#CB181D" "#A50F15" "#67000D"
-#  "#FFF7FB" "#ECE7F2" "#D0D1E6" "#A6BDDB" "#74A9CF" "#3690C0" "#0570B0" "#045A8D" "#023858"
-#   "#FCFBFD" "#EFEDF5" "#DADAEB" "#BCBDDC" "#9E9AC8" "#807DBA" "#6A51A3" "#54278F" "#3F007D"
-#   brewer.pal(15, "Greys")
-#   "#FFFFFF" "#F0F0F0" "#D9D9D9" "#BDBDBD" "#969696" "#737373" "#525252" "#252525" "#000000"
+# boxplot_gene_psite_function <- function(vector_gene_refs, dataframe, output_dir = "output/MainFig3to6_SuppFig9to15/GlobalPhosphoSiteLevel/boxplot_points2/", condition = condition, sample_id = sample_id, strip_color = "gray80", strip_text_color = "black"){
+# 
+#   #create output directory if it doesn't exist already
+#   if (!dir.exists(output_dir)){
+#     dir.create(output_dir)}
+#   
+#   for (gene_var in vector_gene_refs) {
+#     if(gene_var %in% dataframe$gene_ref) {
+#       
+#       #create boxplot for any sites in each gene
+#       p <- ggplot() + 
+#         geom_boxplot(data = dataframe %>% filter(gene_ref == gene_var),
+#                mapping = aes(x = condition, y = median_norm_intensity), show.legend = FALSE, alpha = 0.3, outlier.color = NA, width = 0.5) +
+#         geom_point(data = dataframe %>% filter(gene_ref == gene_var),
+#                    mapping = aes(x = condition, y = median_norm_intensity),
+#                    fill = "grey",
+#                    mod_residue = position_jitter( width = 0.15, height = 0), shape = 21, alpha = 0.5, size = 1.5, show.legend = FALSE) +
+#         geom_text(data = dataframe %>%
+#         filter(gene_ref == gene_var) %>%
+#           mutate(max_intensity_condition = max(median_norm_intensity)) %>% 
+#         distinct(condition, gene_ref, n_obs,max_intensity_condition),
+#         aes(x = condition, y = max_intensity_condition + 1, label = n_obs),size = 4, show.legend = FALSE, fontface = "bold") +
+#         alexis_theme() +
+#         
+#         facet_wrap(facets = vars(gene_ref), nrow = 4) +
+#         scale_y_continuous(name = expression("Log" [2]* "(intensity)"), expand = c(0.05,0.2))  +
+#         scale_x_discrete(
+#           "EGF treatment duration\n(minutes)",
+#           drop = FALSE,
+#           # limits = c("untreated", "1 min", "3 min", "5 min", "15 min"),
+#           labels = c("0", "1", "3", "5", "15")) +
+#         # theme(axis.text.x = element_text(angle = -90, hjust = 0.5, vjust = 0.5)) +
+#         theme(
+#           
+#           strip.background = element_rect(fill = adjustcolor( strip_color, alpha.f = 0.3)),
+#           strip.text = element_text(size = 16, face = "bold", family = "sans", color = strip_text_color)) #+
+#         # expand_limits(y = c(15, 35)) 
+#       
+#       # save the plot as PNG & PDF
+#       ggsave(filename = file.path(output_dir, paste0(gene_var, "_boxplot_points1.png")), plot = p, width = 8, height = 8, scale = 0.4)
+#       ggsave(filename = file.path(output_dir, paste0(gene_var, "_boxplot_points1.pdf")), plot = p, width = 8, height = 8, scale = 0.4)
+#       
+#     } else { 
+#       message (paste("Gene", gene_var, "not found in the dataframe."))
+#       
+#       }
+#     }
+# }
 
 
-# cluster = c('1' = "#081D58", '2' = "#225EA8", '3'= "#41B6C4", '4' = "#C7E9B4"),
 ```
 
 
@@ -2475,76 +2467,69 @@ boxplot_gene_psite_function <- function(vector_gene_refs, dataframe, output_dir 
 ```
 ###__i) run function on all psites
 ```{r}
-boxplot_gene_psite_function(vector_gene_refs = (ascore_final_gene %>%distinct(gene_ref))$gene_ref,
-                            dataframe = ascore_final_gene %>%
-                              distinct(gene, gene_ref, condition, replicate,
-                                       sample_id, median_norm_intensity, n_obs) %>%
-                              mutate(
-                                condition = fct_relevel(condition,
-                                                        "EGF0min", "EGF1min", "EGF3min", "EGF5min", "EGF15min")),
-                            output_dir = "output/MainFig3to6_SuppFig9to15/GlobalPhosphoSiteLevel/boxplot_points2/")
+# boxplot_gene_psite_function(vector_gene_refs = (ascore_final_gene %>%distinct(gene_ref))$gene_ref,
+#                             dataframe = ascore_final_gene %>%
+#                               distinct(gene, gene_ref, condition, replicate,
+#                                        sample_id, median_norm_intensity, n_obs) %>%
+#                               mutate(
+#                                 condition = fct_relevel(condition,
+#                                                         "EGF0min", "EGF1min", "EGF3min", "EGF5min", "EGF15min")),
+#                             output_dir = "output/MainFig3to6_SuppFig9to15/GlobalPhosphoSiteLevel/boxplot_points2/")
 ```
 
 ###__iii. EGFR pathway errorbar plots
 ####___i. function to iterate through my data
 ```{r}
-boxplot_gene_psite_function1 <- function(vector_gene_refs, dataframe, output_dir = "output/MainFig3to6_SuppFig9to15/GlobalPhosphoSiteLevel/", condition = condition, sample_id = sample_id, strip_color = "gray80", strip_text_color = "black"){
-
-  #create output directory if it doesn't exist already
-  if (!dir.exists(output_dir)){
-    dir.create(output_dir)}
-  
-  for (gene_var in vector_gene_refs) {
-    if(gene_var %in% dataframe$gene_ref) {
-      
-      #create boxplot for any sites in each gene
-      p <- ggplot() + 
-        geom_boxplot(data = dataframe %>% filter(gene_ref == gene_var),
-               mapping = aes(x = condition, y = median_norm_intensity), show.legend = FALSE, alpha = 0.3, outlier.color = NA, width = 0.5) +
-        geom_point(data = dataframe %>% filter(gene_ref == gene_var),
-                   mapping = aes(x = condition, y = median_norm_intensity),
-                   fill = "grey",
-                   mod_residue = position_jitter( width = 0.15, height = 0), shape = 21, alpha = 0.5, size = 1.5, show.legend = FALSE) +
-        geom_text(data = dataframe %>%
-        filter(gene_ref == gene_var) %>%
-          mutate(max_intensity_condition = max(median_norm_intensity)) %>% 
-        distinct(condition, gene_ref, n_obs,max_intensity_condition),
-        aes(x = condition, y = max_intensity_condition + 1, label = n_obs),size = 4, show.legend = FALSE, fontface = "bold") +
-        alexis_theme() +
-        
-        facet_wrap(facets = vars(gene_ref), nrow = 4) +
-        scale_y_continuous(name = expression("Log" [2]* "(intensity)"), expand = c(0.1,0.2))  +
-        scale_x_discrete(
-          "EGF treatment duration\n(minutes)",
-          drop = FALSE,
-          # limits = c("untreated", "1 min", "3 min", "5 min", "15 min"),
-          labels = c("0", "1", "3", "5", "15")) +
-        # theme(axis.text.x = element_text(angle = -90, hjust = 0.5, vjust = 0.5)) +
-        theme(
-          
-          strip.background = element_rect(fill = adjustcolor( strip_color, alpha.f = 0.3)),
-          strip.text = element_text(size = 16, face = "bold", family = "sans", color = strip_text_color)) #+
-        # expand_limits(y = c(15, 35)) 
-      
-      # save the plot as PNG & PDF
-      ggsave(filename = file.path(output_dir, paste0(gene_var, "_boxplot_points.png")), plot = p, width = 8, height = 8, scale = 0.4)
-      ggsave(filename = file.path(output_dir, paste0(gene_var, "_boxplot_points.pdf")), plot = p, width = 8, height = 8, scale = 0.4)
-      
-    } else { 
-      message (paste("Gene", gene_var, "not found in the dataframe."))
-      
-      }
-    }
-}
-
-# "#FFF5F0" "#FEE0D2" "#FCBBA1" "#FC9272" "#FB6A4A" "#EF3B2C" "#CB181D" "#A50F15" "#67000D"
-#  "#FFF7FB" "#ECE7F2" "#D0D1E6" "#A6BDDB" "#74A9CF" "#3690C0" "#0570B0" "#045A8D" "#023858"
-#   "#FCFBFD" "#EFEDF5" "#DADAEB" "#BCBDDC" "#9E9AC8" "#807DBA" "#6A51A3" "#54278F" "#3F007D"
-#   brewer.pal(15, "Greys")
-#   "#FFFFFF" "#F0F0F0" "#D9D9D9" "#BDBDBD" "#969696" "#737373" "#525252" "#252525" "#000000"
+# boxplot_gene_psite_function1 <- function(vector_gene_refs, dataframe, output_dir = "output/MainFig3to6_SuppFig9to15/GlobalPhosphoSiteLevel/", condition = condition, sample_id = sample_id, strip_color = "gray80", strip_text_color = "black"){
+# 
+#   #create output directory if it doesn't exist already
+#   if (!dir.exists(output_dir)){
+#     dir.create(output_dir)}
+#   
+#   for (gene_var in vector_gene_refs) {
+#     if(gene_var %in% dataframe$gene_ref) {
+#       
+#       #create boxplot for any sites in each gene
+#       p <- ggplot() + 
+#         geom_boxplot(data = dataframe %>% filter(gene_ref == gene_var),
+#                mapping = aes(x = condition, y = median_norm_intensity), show.legend = FALSE, alpha = 0.3, outlier.color = NA, width = 0.5) +
+#         geom_point(data = dataframe %>% filter(gene_ref == gene_var),
+#                    mapping = aes(x = condition, y = median_norm_intensity),
+#                    fill = "grey",
+#                    mod_residue = position_jitter( width = 0.15, height = 0), shape = 21, alpha = 0.5, size = 1.5, show.legend = FALSE) +
+#         geom_text(data = dataframe %>%
+#         filter(gene_ref == gene_var) %>%
+#           mutate(max_intensity_condition = max(median_norm_intensity)) %>% 
+#         distinct(condition, gene_ref, n_obs,max_intensity_condition),
+#         aes(x = condition, y = max_intensity_condition + 1, label = n_obs),size = 4, show.legend = FALSE, fontface = "bold") +
+#         alexis_theme() +
+#         
+#         facet_wrap(facets = vars(gene_ref), nrow = 4) +
+#         scale_y_continuous(name = expression("Log" [2]* "(intensity)"), expand = c(0.1,0.2))  +
+#         scale_x_discrete(
+#           "EGF treatment duration\n(minutes)",
+#           drop = FALSE,
+#           # limits = c("untreated", "1 min", "3 min", "5 min", "15 min"),
+#           labels = c("0", "1", "3", "5", "15")) +
+#         # theme(axis.text.x = element_text(angle = -90, hjust = 0.5, vjust = 0.5)) +
+#         theme(
+#           
+#           strip.background = element_rect(fill = adjustcolor( strip_color, alpha.f = 0.3)),
+#           strip.text = element_text(size = 16, face = "bold", family = "sans", color = strip_text_color)) #+
+#         # expand_limits(y = c(15, 35)) 
+#       
+#       # save the plot as PNG & PDF
+#       ggsave(filename = file.path(output_dir, paste0(gene_var, "_boxplot_points.png")), plot = p, width = 8, height = 8, scale = 0.4)
+#       ggsave(filename = file.path(output_dir, paste0(gene_var, "_boxplot_points.pdf")), plot = p, width = 8, height = 8, scale = 0.4)
+#       
+#     } else { 
+#       message (paste("Gene", gene_var, "not found in the dataframe."))
+#       
+#       }
+#     }
+# }
 
 
-# cluster = c('1' = "#081D58", '2' = "#225EA8", '3'= "#41B6C4", '4' = "#C7E9B4"),
 ```
 
 
@@ -2559,12 +2544,12 @@ CST_EGFR_proteins <- c("P00533","P42336","Q9Y243","P42345","P23443","P15498","P6
 
 ```{r}
 
-boxplot_gene_psite_function1( vector_gene_refs = (ascore_final_gene %>%
-                                                   filter(reference %in% c("P19419", "P41970", "P28324")) %>% 
-                                                    # filter(grepl("STAT", gene) == TRUE) %>% 
-                                                   # filter(reference %in% CST_EGFR_proteins) %>%
-                                                   distinct(gene_ref))$gene_ref,strip_text_color = "black",
-                             dataframe = ascore_final_gene %>% distinct(gene, gene_ref, condition, replicate, sample_id, median_norm_intensity, n_obs) %>% mutate(condition = fct_relevel(condition, "EGF0min", "EGF1min", "EGF3min", "EGF5min", "EGF15min")), output_dir = "output/MainFig3to6_SuppFig9to15/GlobalPhosphoSiteLevel/EGF_pathway/", strip_color = "lightblue")
+# boxplot_gene_psite_function1( vector_gene_refs = (ascore_final_gene %>%
+#                                                    filter(reference %in% c("P19419", "P41970", "P28324")) %>% 
+#                                                     # filter(grepl("STAT", gene) == TRUE) %>% 
+#                                                    # filter(reference %in% CST_EGFR_proteins) %>%
+#                                                    distinct(gene_ref))$gene_ref,strip_text_color = "black",
+#                              dataframe = ascore_final_gene %>% distinct(gene, gene_ref, condition, replicate, sample_id, median_norm_intensity, n_obs) %>% mutate(condition = fct_relevel(condition, "EGF0min", "EGF1min", "EGF3min", "EGF5min", "EGF15min")), output_dir = "output/MainFig3to6_SuppFig9to15/GlobalPhosphoSiteLevel/EGF_pathway/", strip_color = "lightblue")
 
 
 ```
@@ -2802,7 +2787,7 @@ PTMNav_psite_input <- psite_diff_abundance_gene %>%
 
 colnames(PTMNav_psite_input) <- c("Protein IDs", "p-site", "Experiment", "Fold change", "adjusted pvalue", "Regulation")
 
-write_csv(x = PTMNav_psite_input, file = "modified_data/DDA_GP/PTMNav_psite_input.csv")
+write_csv(x = PTMNav_psite_input, file = "modified_data/MainFig3to6_SuppFig9to15/GlobalPhosphoSiteLevel/PTMNav_psite_input.csv")
 ```
 
 
@@ -4353,9 +4338,17 @@ ggsave(filename = "output/MainFig3to6_SuppFig9to15/GlobalPhosphoSiteLevel/zscore
 ##### - - - my labeller function
 ```{r}
 #custom labeller function
-my_labeller <-  function (variable, value) {
-  if (variable == "cluster") {
-    paste("Cluster", value, sep = " ") } else {value} }
+# my_labeller <-  function (variable, value) {
+#   if (variable == "cluster") {
+#     paste("Cluster", value, sep = " ") } else {value} }
+
+my_labeller <- function(labels) {
+  # labels is a data frame with columns = facet variables
+  if ("cluster" %in% names(labels)) {
+    labels$cluster <- paste("Cluster", labels$cluster)
+  }
+  labels
+}
 ```
 
 

@@ -23,9 +23,9 @@ library(cowplot)
 library(reshape2)
 library(eulerr)
 library(protti)
-# library(diann)
 library(iq)
 library(RColorBrewer)
+
 #for PCA loadings
 library(FactoMineR)
 
@@ -1039,7 +1039,7 @@ This I think was defunct code anyways.
 ##_a. COMET
 ```{r}
 
-comet <- read_csv("raw_data/MainFig3to6_SuppFig9to15/TyrPhospho/20241001_final_comet/result.csv") %>%
+comet <- read_csv("raw_data/MainFig3to6_SuppFig9to15/TyrPhospho/comet/result.csv") %>%
   clean_names() %>% 
   separate(col = sample_name, into = c("experiment", "enrichment", "condition", "replicate", "R2P2_well", "MS_method", "inj_vol"), sep = "_", remove = FALSE) %>% 
    
@@ -1082,7 +1082,7 @@ master_FASTA <- overlap_human_FASTA2024_gene_names %>%
 
 ###_i. ascore redundancy info
 ```{r}
-ascore_redundancyinfo <- read_csv("raw_data/MainFig3to6_SuppFig9to15/TyrPhospho/AC080_ascore_w_proteins_andPOOL/result.csv") %>% 
+ascore_redundancyinfo <- read_csv("raw_data/MainFig3to6_SuppFig9to15/TyrPhospho/ascore_w_proteins_andPOOL/result.csv") %>% 
 
   clean_names() %>% 
   separate(col = sample_name, into = c("experiment", "enrichment", "condition", "replicate", "R2P2_well", "MS_method", "inj_vol"), sep = "_", remove = FALSE) %>% 
@@ -1160,7 +1160,7 @@ ggsave(filename = "output/MainFig3to6_SuppFig9to15/pTyrSiteLevel/plot_CDK1_ascor
 
 ##_d. ascore parsing
 ```{r}
-ascore <- read_csv("raw_data/MainFig3to6_SuppFig9to15/20241001_final_ascore/result.csv") %>% 
+ascore <- read_csv("raw_data/MainFig3to6_SuppFig9to15/ascore/result.csv") %>% 
 
   clean_names() %>% 
   separate(col = sample_name, into = c("experiment", "enrichment", "condition", "replicate", "R2P2_well", "MS_method", "inj_vol"), sep = "_", remove = FALSE) %>% 
@@ -7197,63 +7197,55 @@ I think I need to normalize the intensities prior to clustering because I am als
 
 ###__i. function to iterate through my data
 ```{r}
-boxplot_gene_psite_function <- function(vector_gene_refs, dataframe, output_dir = "output/MainFig3to6_SuppFig9to15/pTyrSiteLevel/", condition = condition, sample_id = sample_id, strip_color = "gray80", strip_text_color = "black"){
+# boxplot_gene_psite_function <- function(vector_gene_refs, dataframe, output_dir = "output/MainFig3to6_SuppFig9to15/pTyrSiteLevel/", condition = condition, sample_id = sample_id, strip_color = "gray80", strip_text_color = "black"){
+# 
+#   #create output directory if it doesn't exist already
+#   if (!dir.exists(output_dir)){
+#     dir.create(output_dir)}
+#   
+#   for (gene_var in vector_gene_refs) {
+#     if(gene_var %in% dataframe$gene_ref) {
+#       
+#       #create boxplot for any sites in each gene
+#       p <- ggplot() + 
+#         geom_boxplot(data = dataframe %>% filter(gene_ref == gene_var),
+#                mapping = aes(x = condition, y = median_norm_intensity), show.legend = FALSE, alpha = 0.3, outlier.color = NA, width = 0.5) +
+#         geom_point(data = dataframe %>% filter(gene_ref == gene_var),
+#                    mapping = aes(x = condition, y = median_norm_intensity),
+#                    fill = "grey",
+#                    mod_residue = position_jitter( width = 0.15, height = 0), shape = 21, alpha = 0.5, size = 1.5, show.legend = FALSE) +
+#         geom_text(data = dataframe %>%
+#         filter(gene_ref == gene_var) %>%
+#           mutate(max_intensity_condition = max(median_norm_intensity)) %>% 
+#         distinct(condition, gene_ref, n_obs,max_intensity_condition),
+#         aes(x = condition, y = max_intensity_condition + 1, label = n_obs),size = 4, show.legend = FALSE, fontface = "bold") +
+#         alexis_theme() +
+#         
+#         facet_wrap(facets = vars(gene_ref), nrow = 4) +
+#         scale_y_continuous(name = expression("Log" [2]* "(intensity)"), expand = c(0.05,0.2))  +
+#         scale_x_discrete(
+#           "EGF treatment duration\n(minutes)",
+#           drop = FALSE,
+#           # limits = c("untreated", "1 min", "3 min", "5 min", "15 min"),
+#           labels = c("0", "1", "3", "5", "15")) +
+#         # theme(axis.text.x = element_text(angle = -90, hjust = 0.5, vjust = 0.5)) +
+#         theme(
+#           
+#           strip.background = element_rect(fill = adjustcolor( strip_color, alpha.f = 0.3)),
+#           strip.text = element_text(size = 16, face = "bold", family = "sans", color = strip_text_color)) #+
+#         # expand_limits(y = c(15, 35)) 
+#       
+#       # save the plot as PNG & PDF
+#       ggsave(filename = file.path(output_dir, paste0(gene_var, "_boxplot_points1.png")), plot = p, width = 8, height = 8, scale = 0.4)
+#       ggsave(filename = file.path(output_dir, paste0(gene_var, "_boxplot_points1.pdf")), plot = p, width = 8, height = 8, scale = 0.4)
+#       
+#     } else { 
+#       message (paste("Gene", gene_var, "not found in the dataframe."))
+#       
+#       }
+#     }
+# }
 
-  #create output directory if it doesn't exist already
-  if (!dir.exists(output_dir)){
-    dir.create(output_dir)}
-  
-  for (gene_var in vector_gene_refs) {
-    if(gene_var %in% dataframe$gene_ref) {
-      
-      #create boxplot for any sites in each gene
-      p <- ggplot() + 
-        geom_boxplot(data = dataframe %>% filter(gene_ref == gene_var),
-               mapping = aes(x = condition, y = median_norm_intensity), show.legend = FALSE, alpha = 0.3, outlier.color = NA, width = 0.5) +
-        geom_point(data = dataframe %>% filter(gene_ref == gene_var),
-                   mapping = aes(x = condition, y = median_norm_intensity),
-                   fill = "grey",
-                   mod_residue = position_jitter( width = 0.15, height = 0), shape = 21, alpha = 0.5, size = 1.5, show.legend = FALSE) +
-        geom_text(data = dataframe %>%
-        filter(gene_ref == gene_var) %>%
-          mutate(max_intensity_condition = max(median_norm_intensity)) %>% 
-        distinct(condition, gene_ref, n_obs,max_intensity_condition),
-        aes(x = condition, y = max_intensity_condition + 1, label = n_obs),size = 4, show.legend = FALSE, fontface = "bold") +
-        alexis_theme() +
-        
-        facet_wrap(facets = vars(gene_ref), nrow = 4) +
-        scale_y_continuous(name = expression("Log" [2]* "(intensity)"), expand = c(0.05,0.2))  +
-        scale_x_discrete(
-          "EGF treatment duration\n(minutes)",
-          drop = FALSE,
-          # limits = c("untreated", "1 min", "3 min", "5 min", "15 min"),
-          labels = c("0", "1", "3", "5", "15")) +
-        # theme(axis.text.x = element_text(angle = -90, hjust = 0.5, vjust = 0.5)) +
-        theme(
-          
-          strip.background = element_rect(fill = adjustcolor( strip_color, alpha.f = 0.3)),
-          strip.text = element_text(size = 16, face = "bold", family = "sans", color = strip_text_color)) #+
-        # expand_limits(y = c(15, 35)) 
-      
-      # save the plot as PNG & PDF
-      ggsave(filename = file.path(output_dir, paste0(gene_var, "_boxplot_points1.png")), plot = p, width = 8, height = 8, scale = 0.4)
-      ggsave(filename = file.path(output_dir, paste0(gene_var, "_boxplot_points1.pdf")), plot = p, width = 8, height = 8, scale = 0.4)
-      
-    } else { 
-      message (paste("Gene", gene_var, "not found in the dataframe."))
-      
-      }
-    }
-}
-
-# "#FFF5F0" "#FEE0D2" "#FCBBA1" "#FC9272" "#FB6A4A" "#EF3B2C" "#CB181D" "#A50F15" "#67000D"
-#  "#FFF7FB" "#ECE7F2" "#D0D1E6" "#A6BDDB" "#74A9CF" "#3690C0" "#0570B0" "#045A8D" "#023858"
-#   "#FCFBFD" "#EFEDF5" "#DADAEB" "#BCBDDC" "#9E9AC8" "#807DBA" "#6A51A3" "#54278F" "#3F007D"
-#   brewer.pal(15, "Greys")
-#   "#FFFFFF" "#F0F0F0" "#D9D9D9" "#BDBDBD" "#969696" "#737373" "#525252" "#252525" "#000000"
-
-
-# cluster = c('1' = "#081D58", '2' = "#225EA8", '3'= "#41B6C4", '4' = "#C7E9B4"),
 ```
 
 ##### ====== write for shiny boxplots ====== 
@@ -7267,10 +7259,10 @@ write_csv(ascore_gene_clusters_Imputation_noSD, file = "modified_data/MainFig3to
 ####___i.  cluster 1
 ```{r}
 
-boxplot_gene_psite_function( vector_gene_refs = (ascore_gene_clusters_Imputation_noSD %>% filter(cluster ==1) %>% distinct(gene_ref))$gene_ref,
-                             strip_text_color = "black",
-                             dataframe = ascore_gene_clusters_Imputation_noSD %>%
-                               distinct(gene, gene_ref, condition, replicate, sample_id, median_norm_intensity, cluster, n_obs) %>% mutate(condition = fct_relevel(condition, "EGF0min", "EGF1min", "EGF3min", "EGF5min", "EGF15min")), output_dir = "output/MainFig3to6_SuppFig9to15/pTyrSiteLevel/cluster1/", strip_color = "#081D58")
+# boxplot_gene_psite_function( vector_gene_refs = (ascore_gene_clusters_Imputation_noSD %>% filter(cluster ==1) %>% distinct(gene_ref))$gene_ref,
+#                              strip_text_color = "black",
+#                              dataframe = ascore_gene_clusters_Imputation_noSD %>%
+#                                distinct(gene, gene_ref, condition, replicate, sample_id, median_norm_intensity, cluster, n_obs) %>% mutate(condition = fct_relevel(condition, "EGF0min", "EGF1min", "EGF3min", "EGF5min", "EGF15min")), output_dir = "output/MainFig3to6_SuppFig9to15/pTyrSiteLevel/cluster1/", strip_color = "#081D58")
 
 
 ```
@@ -7303,63 +7295,56 @@ facet_colors_cluster <- c("1" = "#1B9E77", "2" = "#D95F02", "3" = "#7570B3", "4"
 ###__iii. EGFR pathway errorbar plots
 ####___i. function to iterate through my data
 ```{r}
-boxplot_gene_psite_function <- function(vector_gene_refs, dataframe, output_dir = "output/MainFig3to6_SuppFig9to15/pTyrSiteLevel/", condition = condition, sample_id = sample_id, strip_color = "gray80", strip_text_color = "black"){
-
-  #create output directory if it doesn't exist already
-  if (!dir.exists(output_dir)){
-    dir.create(output_dir)}
-  
-  for (gene_var in vector_gene_refs) {
-    if(gene_var %in% dataframe$gene_ref) {
-      
-      #create boxplot for any sites in each gene
-      p <- ggplot() + 
-        geom_boxplot(data = dataframe %>% filter(gene_ref == gene_var),
-               mapping = aes(x = condition, y = median_norm_intensity), show.legend = FALSE, alpha = 0.3, outlier.color = NA, width = 0.5) +
-        geom_point(data = dataframe %>% filter(gene_ref == gene_var),
-                   mapping = aes(x = condition, y = median_norm_intensity),
-                   fill = "grey",
-                   mod_residue = position_jitter( width = 0.15, height = 0), shape = 21, alpha = 0.5, size = 1.5, show.legend = FALSE) +
-        geom_text(data = dataframe %>%
-        filter(gene_ref == gene_var) %>%
-          mutate(max_intensity_condition = max(median_norm_intensity)) %>% 
-        distinct(condition, gene_ref, n_obs,max_intensity_condition),
-        aes(x = condition, y = max_intensity_condition + 1, label = n_obs),size = 4, show.legend = FALSE, fontface = "bold") +
-        alexis_theme() +
-        
-        facet_wrap(facets = vars(gene_ref), nrow = 4) +
-        scale_y_continuous(name = expression("Log" [2]* "(intensity)"), expand = c(0.1,0.2))  +
-        scale_x_discrete(
-          "EGF treatment duration\n(minutes)",
-          drop = FALSE,
-          # limits = c("untreated", "1 min", "3 min", "5 min", "15 min"),
-          labels = c("0", "1", "3", "5", "15")) +
-        # theme(axis.text.x = element_text(angle = -90, hjust = 0.5, vjust = 0.5)) +
-        theme(
-          
-          strip.background = element_rect(fill = adjustcolor( strip_color, alpha.f = 0.3)),
-          strip.text = element_text(size = 16, face = "bold", family = "sans", color = strip_text_color)) #+
-        # expand_limits(y = c(15, 35)) 
-      
-      # save the plot as PNG & PDF
-      ggsave(filename = file.path(output_dir, paste0(gene_var, "_boxplot_points1.png")), plot = p, width = 8, height = 8, scale = 0.4)
-      ggsave(filename = file.path(output_dir, paste0(gene_var, "_boxplot_points1.pdf")), plot = p, width = 8, height = 8, scale = 0.4)
-      
-    } else { 
-      message (paste("Gene", gene_var, "not found in the dataframe."))
-      
-      }
-    }
-}
-
-# "#FFF5F0" "#FEE0D2" "#FCBBA1" "#FC9272" "#FB6A4A" "#EF3B2C" "#CB181D" "#A50F15" "#67000D"
-#  "#FFF7FB" "#ECE7F2" "#D0D1E6" "#A6BDDB" "#74A9CF" "#3690C0" "#0570B0" "#045A8D" "#023858"
-#   "#FCFBFD" "#EFEDF5" "#DADAEB" "#BCBDDC" "#9E9AC8" "#807DBA" "#6A51A3" "#54278F" "#3F007D"
-#   brewer.pal(15, "Greys")
-#   "#FFFFFF" "#F0F0F0" "#D9D9D9" "#BDBDBD" "#969696" "#737373" "#525252" "#252525" "#000000"
+# boxplot_gene_psite_function <- function(vector_gene_refs, dataframe, output_dir = "output/MainFig3to6_SuppFig9to15/pTyrSiteLevel/", condition = condition, sample_id = sample_id, strip_color = "gray80", strip_text_color = "black"){
+# 
+#   #create output directory if it doesn't exist already
+#   if (!dir.exists(output_dir)){
+#     dir.create(output_dir)}
+#   
+#   for (gene_var in vector_gene_refs) {
+#     if(gene_var %in% dataframe$gene_ref) {
+#       
+#       #create boxplot for any sites in each gene
+#       p <- ggplot() + 
+#         geom_boxplot(data = dataframe %>% filter(gene_ref == gene_var),
+#                mapping = aes(x = condition, y = median_norm_intensity), show.legend = FALSE, alpha = 0.3, outlier.color = NA, width = 0.5) +
+#         geom_point(data = dataframe %>% filter(gene_ref == gene_var),
+#                    mapping = aes(x = condition, y = median_norm_intensity),
+#                    fill = "grey",
+#                    mod_residue = position_jitter( width = 0.15, height = 0), shape = 21, alpha = 0.5, size = 1.5, show.legend = FALSE) +
+#         geom_text(data = dataframe %>%
+#         filter(gene_ref == gene_var) %>%
+#           mutate(max_intensity_condition = max(median_norm_intensity)) %>% 
+#         distinct(condition, gene_ref, n_obs,max_intensity_condition),
+#         aes(x = condition, y = max_intensity_condition + 1, label = n_obs),size = 4, show.legend = FALSE, fontface = "bold") +
+#         alexis_theme() +
+#         
+#         facet_wrap(facets = vars(gene_ref), nrow = 4) +
+#         scale_y_continuous(name = expression("Log" [2]* "(intensity)"), expand = c(0.1,0.2))  +
+#         scale_x_discrete(
+#           "EGF treatment duration\n(minutes)",
+#           drop = FALSE,
+#           # limits = c("untreated", "1 min", "3 min", "5 min", "15 min"),
+#           labels = c("0", "1", "3", "5", "15")) +
+#         # theme(axis.text.x = element_text(angle = -90, hjust = 0.5, vjust = 0.5)) +
+#         theme(
+#           
+#           strip.background = element_rect(fill = adjustcolor( strip_color, alpha.f = 0.3)),
+#           strip.text = element_text(size = 16, face = "bold", family = "sans", color = strip_text_color)) #+
+#         # expand_limits(y = c(15, 35)) 
+#       
+#       # save the plot as PNG & PDF
+#       ggsave(filename = file.path(output_dir, paste0(gene_var, "_boxplot_points1.png")), plot = p, width = 8, height = 8, scale = 0.4)
+#       ggsave(filename = file.path(output_dir, paste0(gene_var, "_boxplot_points1.pdf")), plot = p, width = 8, height = 8, scale = 0.4)
+#       
+#     } else { 
+#       message (paste("Gene", gene_var, "not found in the dataframe."))
+#       
+#       }
+#     }
+# }
 
 
-# cluster = c('1' = "#081D58", '2' = "#225EA8", '3'= "#41B6C4", '4' = "#C7E9B4"),
 ```
 
 
