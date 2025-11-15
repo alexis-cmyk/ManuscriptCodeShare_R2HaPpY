@@ -46,7 +46,7 @@ This site allows exploration of phosphorylation patterns, gene-level filtering, 
 
 The full experimental workflow, including SH2 Superbinder expression, bead preparation, enrichment, and LC-MS/MS acquisition is documented on protocols.io:
 
-➡ **[Protocols.io Link](https://www.protocols.io/private/48FD48C3977A11F0A3900A58A9FEAC02]**
+➡ **[Protocols.io Link](https://www.protocols.io/private/48FD48C3977A11F0A3900A58A9FEAC02)**
 
 ---
 
