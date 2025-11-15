@@ -54,7 +54,7 @@ The full experimental workflow, including SH2 Superbinder expression, bead prepa
 
 Raw phosphoproteomics and proteome CSVs for all figures are provided as release assets:
 
-- **[Download R2HaPpY raw data (v1.0)](https://github.com/alexis-cmyk/ManuscriptCodeShare_R2HaPpY/releases/tag/v1.0.0-data)**
+- **[Download R2HaPpY raw data (v1.0)](https://github.com/alexis-cmyk/ManuscriptCodeShare_R2HaPpY/releases/tag/v1.0.1-InputData_and_OutputFolders)**
 
 Each archive contains the full set of raw search engine outputs (Comet), AScore assignments, peptide-level redundancy tables, and meta-data required to reproduce the manuscript analyses.
 
