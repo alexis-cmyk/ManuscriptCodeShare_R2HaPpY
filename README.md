@@ -6,6 +6,9 @@ This repository contains all analysis scripts, figure-generation code, and searc
 **“Phosphotyrosine Proteomics Using a Scalable SH2 Superbinder Enrichment Strategy.”**
 **[BioRxiv Preprint](https://www.biorxiv.org/content/10.1101/2025.05.14.653984v1)**
 
+![Visual Abstract](./README_VisualAbstract.png)
+HTML(<img src="./README_VisualAbstract.png" width = "600">)
+
 The codebase includes:
 - R scripts used to process phosphoproteomics, global phosphoproteome, and proteome datasets for both method optimization and biological application.  
 - Figure-generation pipelines for all Main Figures and Supplementary Figures  
@@ -57,7 +60,7 @@ All figures in the manuscript reliant on custom code can be regenerated using:
 - To generate all figures with one command, in console within this Rproject, run: `source("00_master_run_all_figures.R")`
   - This file points to each figure specific script: `R/00_master_run_all_figures.R`
 
-- The Shiny application enabling interactive re-analysis and visualization *[here](https://r2happy.gs.washington.edu)*
+- The Shiny application enabling interactive re-analysis and visualization **[here](https://r2happy.gs.washington.edu)**
 
 ---
 ## Dependencies
@@ -69,5 +72,9 @@ To reproduce the full environment:
 ```{r}
 renv::restore()
 ```
+---
+## Contact Information
 
+Judit Villen Laboratory
+Genome Sciences, University of Washington, Seattle
 **[See more from the Villen lab ](https://villenlab.gs.washington.edu/wordpress/)**
