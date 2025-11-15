@@ -6,8 +6,8 @@ This repository contains all analysis scripts, figure-generation code, and searc
 **“Phosphotyrosine Proteomics Using a Scalable SH2 Superbinder Enrichment Strategy.”**
 **[BioRxiv Preprint](https://www.biorxiv.org/content/10.1101/2025.05.14.653984v1)**
 
-![Visual Abstract](./README_VisualAbstract.png)
-HTML(<img src="./README_VisualAbstract.png" width = "600">)
+
+<img src="./README_VisualAbstract.png" width = "600">
 
 The codebase includes:
 - R scripts used to process phosphoproteomics, global phosphoproteome, and proteome datasets for both method optimization and biological application.  
