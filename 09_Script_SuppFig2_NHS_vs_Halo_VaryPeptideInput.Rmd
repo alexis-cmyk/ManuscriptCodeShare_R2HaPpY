@@ -16,7 +16,6 @@ library(cowplot)
 library(reshape2)
 library(eulerr)
 library(protti)
-library(diann)
 library(iq)
 library(RColorBrewer)
 #for PCA loadings
@@ -631,22 +630,6 @@ my_hier_cluster <- function (data,
 ```{r}
 human_fasta_2024 <- read_csv("raw_data/SuppFig2/sp_reviewed_UP000005640_2024_03_21_forR.csv")
 
-
-## just to convert PTMSEA gene names to uniprot ID references
-# fasta_gene_names <- read_tsv(file = "raw_data/SuppFig2/uniprotkb_proteome_UP000005640_2024_09_04.tsv") %>%
-#   clean_names() %>% 
-#   #many gene names per uniprot reference, hope first gene name matches,
-#   #otherwise figure out if secondary matches improve join.
-#   separate(gene_names, into = c("gene", "gene2", "gene3", "gene4", "gene5", "gene6"), remove = FALSE)
-
-# fasta_subcellular_location <- read_tsv("raw_data/SuppFig2/uniprotkb_proteome_UP000005640_2024_10_16_locations.txt") %>% clean_names() %>% 
-#   rename(reference = entry) %>% 
-#   filter(grepl("HUMAN", sequence) == FALSE) #remove titin which was annotated oddly
-
-
-##fasta with functions, subcellular component and cellular location.
-# fxns_fasta <- read_tsv(file = "raw_data/SuppFig2/fxns_UP000005640_2024_11_05.tsv") %>% clean_names() %>% 
-#   rename(gene_names = gene)
 ```
 
 #IV. IMPORT MY DATA
@@ -882,7 +865,7 @@ sample info for PRIDE
 sample_info_for_PRIDE <- comet %>% 
   distinct(raw_file_name, R2P2_well, condition, replicate,set_id)
 
-write_csv(sample_info_for_PRIDE, file = "modified_data/SuppFig2/HiResAscore_20241224_PeptInputRange/sample_info_for_PRIDE.csv")
+write_csv(sample_info_for_PRIDE, file = "modified_data/SuppFig2/sample_info_for_PRIDE.csv")
 ```
 
 

@@ -221,7 +221,6 @@ library(cowplot)
 library(reshape2)
 library(eulerr)
 library(protti)
-# library(diann)
 library(iq)
 library(RColorBrewer)
 #for PCA loadings

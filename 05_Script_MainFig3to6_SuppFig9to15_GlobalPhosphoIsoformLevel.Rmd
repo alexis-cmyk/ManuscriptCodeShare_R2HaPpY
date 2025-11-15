@@ -1793,12 +1793,12 @@ global_isoform_shiny <- ascore_final_gene %>%
                                redundancy >=1 ~ paste("ambiguous protein assignment,", redundancy +1, "proteins", sep = " ")))
   
   
-write_csv(x = global_isoform_shiny, file = "modified_data/DDA_GP/EGF_stim/GLOBAL_ISOFORM_input.csv")
+write_csv(x = global_isoform_shiny, file = "modified_data/MainFig3to6_SuppFig9to15/GlobalPhosphoIsoformLevel/GLOBAL_ISOFORM_input.csv")
 ```
 
 
 ```{r}
-# write_csv(x = ascore_final_gene, file = "modified_data/DDA_GP/EGF_stim/GPisoform_SHINY_input.csv")
+# write_csv(x = ascore_final_gene, file = "modified_data/MainFig3to6_SuppFig9to15/GlobalPhosphoIsoformLevel/GPisoform_SHINY_input.csv")
 ```
 
 

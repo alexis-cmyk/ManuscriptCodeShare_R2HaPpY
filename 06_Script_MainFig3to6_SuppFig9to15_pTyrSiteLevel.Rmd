@@ -25,7 +25,7 @@ library(eulerr)
 library(protti)
 library(iq)
 library(RColorBrewer)
-
+library(biomaRt)
 #for PCA loadings
 library(FactoMineR)
 
@@ -45,6 +45,12 @@ library(e1071)
 library(ggseqlogo)
 
 library(limma)
+
+# install.packages("conflicted")
+library(conflicted)
+conflicted::conflicts_prefer(dplyr::select)
+conflicted::conflicts_prefer(dplyr::rename)
+conflicts_prefer(dplyr::filter)
 
 ```
 Katarina Vlajic uses mfuzz for cmeans clustering per the Olsen paper: https://bioconductor.org/packages/release/bioc/html/Mfuzz.html
@@ -1160,7 +1166,7 @@ ggsave(filename = "output/MainFig3to6_SuppFig9to15/pTyrSiteLevel/plot_CDK1_ascor
 
 ##_d. ascore parsing
 ```{r}
-ascore <- read_csv("raw_data/MainFig3to6_SuppFig9to15/ascore/result.csv") %>% 
+ascore <- read_csv("raw_data/MainFig3to6_SuppFig9to15/TyrPhospho/ascore/result.csv") %>% 
 
   clean_names() %>% 
   separate(col = sample_name, into = c("experiment", "enrichment", "condition", "replicate", "R2P2_well", "MS_method", "inj_vol"), sep = "_", remove = FALSE) %>% 
@@ -1302,6 +1308,14 @@ mod_pos_group
   
 #--------------------------------------------------
 ```
+####----write_csv `ascore_fasta_protein_mod_loc_allobservations`
+Used in script 08_ comparison to Reddy et al. 2016
+```{r}
+write_csv(x = ascore_fasta_protein_mod_loc_allobservations %>%
+            rename(psite = mod_protein_location) %>%
+            distinct(reference, psite),
+          file = "modified_data/MainFig3to6_SuppFig9to15/pTyrSiteLevel/AllpYSiteDetections_CompareToOtherStudies.csv")
+```
 
 ###___v. rollup PSM to precursor, then sum precursor intensities to p-site and median normalize
 
@@ -1374,6 +1388,13 @@ ascore_fasta_protein_mod_loc_sum_psite_allobservations <- ascore_fasta_protein_m
 ```{r}
 #could call df 3repsonce, but omitting for easier integration into pre-existing code
 ascore_fasta_protein_mod_loc_sum_psite <- ascore_fasta_protein_mod_loc_sum_psite_allobservations %>% 
+  mutate(
+    string_length_proteins = str_length(proteins)  ) %>% 
+  #collapse redundant protein assignments to maximal possible proteins assigned.
+  group_by(sample_id, reference, ref) %>% 
+  filter(string_length_proteins == max(string_length_proteins)) %>%  
+  ungroup()%>%
+  select(-string_length_proteins) %>% 
   group_by(condition, ref) %>% 
   mutate(
     n_obs_per_condition = n()  ) %>% 
@@ -2338,7 +2359,7 @@ SHINY_pY_SITE_input <- ascore_fasta_protein_mod_loc_pY_sum_psite %>%
   left_join(fxns_fasta %>% distinct(reference, protein_names), by = "reference" )
   
 
-write_csv(SHINY_pY_SITE_input, "modified_data/MainFig3to6_SuppFig9to15/pTyrSiteLevel/shiny_input/SHINY_pY_SITE_input.csv" )
+write_csv(SHINY_pY_SITE_input, "modified_data/MainFig3to6_SuppFig9to15/pTyrSiteLevel/SHINY_pY_SITE_input.csv" )
 ```
 
 
@@ -3111,7 +3132,7 @@ sums_psites_overlap_DBs_noImputation <- psite_diff_abundance_gene_noImputation_2
 ```
 #### . . .  . write to csv
 ```{r}
-write_csv(x = psite_diff_abundance_gene_noImputation_2xDB, file = "modified_data/MainFig3to6_SuppFig9to15/pTyrSiteLevel/noPOOL/min_3reps_once/psite_diff_abundance_gene_noImputation_2xDB.csv")
+write_csv(x = psite_diff_abundance_gene_noImputation_2xDB, file = "modified_data/MainFig3to6_SuppFig9to15/pTyrSiteLevel/psite_diff_abundance_gene_noImputation_2xDB.csv")
 ```
 
 #### . . . . list of sig reg pY sites
@@ -3535,15 +3556,25 @@ ascore_gene_noImputation <- ascore_fasta_protein_mod_loc_pY_sum_psite %>%
   left_join(y = master_FASTA, by = "reference") %>% 
   
   separate(ref, into = c("reference2", "psite"), sep = "_", remove = FALSE) %>% 
-  select(-reference2) %>% 
+  select(-reference2) %>%
+
   mutate(
     gene_ref = paste(gene, psite, sep = " "),
     condition = as.factor(condition),
-    condition = fct_relevel(condition, "EGF0min", "EGF1min",  "EGF3min", "EGF5min", "EGF15min")) %>% 
+    condition = fct_relevel(condition, "EGF0min", "EGF1min",  "EGF3min", "EGF5min", "EGF15min"),
+    string_length_proteins = str_length(proteins)) %>% 
+
+  #collapse redundant protein assignments to maximal possible proteins assigned.
+  group_by(sample_id, reference, gene_ref, replicate) %>% 
+  filter(string_length_proteins == max(string_length_proteins)) %>%  
+  ungroup()%>% 
+  
+#count n_observatinos (n_obs) for use in other plots
   group_by(condition, ref, gene_ref) %>% 
   mutate(
     n_obs = n() ) %>% 
-  ungroup()
+  ungroup() %>% 
+  select(-string_length_proteins)
 
 
 # # install.packages("mice")
@@ -3648,6 +3679,7 @@ assess database annotation intersection by direct p-site matching.
 dataframe Y only
 ```{r}
 ascore_gene_noImputation_overlap_my_data_df <- ascore_gene_noImputation %>%
+  
   filter(mod_res == "Y") %>% 
   full_join(psite_diff_abundance_gene_noImputation_2xDB %>% select(ref, overlap_my_data), by = "ref") %>%
   filter(overlap_my_data != "DBs\nonly") %>% 
@@ -3686,6 +3718,7 @@ countsascore_gene_noImputation_overlap_my_data_df <- ascore_gene_noImputation %>
   filter(mod_res == "Y") %>% 
   full_join(psite_diff_abundance_gene_noImputation_2xDB %>% select(ref, overlap_my_data), by = "ref") %>%
   filter(overlap_my_data != "DBs\nonly") %>% 
+  filter(n_obs <= 6) %>%  # a few sites with 8 or 9 observations.
   mutate(
     overlap_my_data = case_when(
       is.na(overlap_my_data) ~ "no sig chg",
@@ -3708,6 +3741,7 @@ countsascore_gene_noImputation_overlap_my_data_df_nOBS <- ascore_gene_noImputati
   filter(mod_res == "Y") %>% 
   full_join(psite_diff_abundance_gene_noImputation_2xDB %>% select(ref, overlap_my_data), by = "ref") %>%
   filter(overlap_my_data != "DBs\nonly") %>% 
+  filter(n_obs <= 6) %>%  # a few sites with 8 or 9 observations.
   mutate(
     overlap_my_data = case_when(
       is.na(overlap_my_data) ~ "no sig chg",
@@ -3720,6 +3754,7 @@ countsascore_gene_noImputation_overlap_my_data_df_nOBS <- ascore_gene_noImputati
   ungroup() %>% 
   filter(!is.na(n_obs)) %>% 
   distinct(overlap_my_data, n_obs, n_psites_per_obs_intersect) %>%
+  
   arrange(overlap_my_data, n_obs) %>% 
   mutate(x = c(0.65,0.8, 0.95, 1.05, 1.2, 1.3,     1.72, 1.82, 1.94, 2.08, 2.22, 2.33),
          y = 8)
@@ -3727,7 +3762,8 @@ countsascore_gene_noImputation_overlap_my_data_df_nOBS <- ascore_gene_noImputati
 
 ####__iv. plot
 ```{r}
-my_data_rel_intensity_noImputation <- ggplot(data = ascore_gene_noImputation_overlap_my_data_df) +
+my_data_rel_intensity_noImputation <- ggplot(data = ascore_gene_noImputation_overlap_my_data_df %>%
+                                               filter(n_obs %in% c("0", "1", "2", "3", "4", "5", "6"))) +
   geom_boxplot(mapping = aes(x = overlap_my_data, y = median_norm_intensity)) +
   geom_boxplot(mapping = aes(x = overlap_my_data, y = median_norm_intensity, fill =  n_obs), color = "black", alpha = 0.3) +
   # geom_segment(data = tibble(x = c(0.75, 1.75), xend = c(1.25, 2.25), y = c(40, 40)), mapping = aes(x = x, xend = xend, y = y), inherit.aes = FALSE) +
@@ -4030,15 +4066,18 @@ plot_observations
 
 
 
+
 ###_c. imputation and pivoting
 ```{r}
 set.seed(15)
 #imputation using normal distributions happens here:
 matrix_ascore_gene_imputed_wSD <- ascore_gene_noImputation %>%
+  
   pivot_wider(id_cols = c("gene_ref", "condition"),
               names_from = replicate,
               values_from =  median_norm_intensity,
               values_fill = NA) %>%
+  select(gene_ref, condition, rep1, rep2, rep3, rep4, rep5, rep6) %>% 
   pivot_longer(cols = c(rep1:rep6), names_to = "replicate") %>% 
   rename(median_norm_intensity = value) %>% 
   mutate(ref_condition = paste(gene_ref, condition, sep = " "),
@@ -4078,7 +4117,7 @@ matrix_ascore_gene_imputed_wSD <- ascore_gene_noImputation %>%
   
 
 
-##VERY MESSY
+
   #separate dataframe for pivoting. seems to be used in fold change analysis below.
   matrix_ascore_gene_imputed_wSD_wider <- matrix_ascore_gene_imputed_wSD %>%
     ungroup() %>%
@@ -4213,89 +4252,7 @@ regulated_pYsites_wimputation_wSD <- foldchange_imputed_wSD %>%
   filter(diff < -1 | diff > 1)
 ```
 
-### REF LIST of regulated vs. not regulated for App and other uses
-```{r}
-#####################
-#genes to convert via uniprot or toher for reference
-genes_to_convert_to_uniprot <- DB_overlap %>% distinct(gene)
 
-library(biomaRt)
-
-# Connect to the Ensembl BioMart
-ensembl <- useMart("ensembl", dataset = "hsapiens_gene_ensembl")
-
-# Example gene list
-genes <- genes_to_convert_to_uniprot$gene
-
-# Query: gene name ??? UniProt accession
-mapping <- getBM(
-  attributes = c("hgnc_symbol", "uniprotswissprot"),  # SwissProt is reviewed entries
-  filters = "hgnc_symbol",
-  values = genes,
-  mart = ensembl
-)
-
-mapping <- mapping %>% filter(str_length(uniprotswissprot) > 0) %>% rename(gene = hgnc_symbol) %>% rename(reference = uniprotswissprot)
-
-
-######################
-DB_overlap_DBonly <- psite_diff_abundance_gene_2xDB_imputed_forvolcano %>% 
-  filter(is.na(reference)) %>% 
-   distinct( gene, mod_res, mod_residue, overlap_my_data) %>%
-  left_join(y = mapping, by = "gene") %>% 
-  
-  
-  rename(position = mod_residue) %>% 
-  # rename(acc = reference) %>% 
-  rename(residue = mod_res)
-
-
-
-######################
-DB_overlap <- psite_diff_abundance_gene_2xDB_imputed_forvolcano %>%
-  filter(!is.na(reference)) %>% #join in DB only that was lacking reference below, added above.
-             distinct(reference, gene, mod_res, mod_residue, overlap_my_data) %>%
-  
-  rename(position = mod_residue) %>% 
-  # rename(acc = reference) %>% 
-  rename(residue = mod_res) %>% rbind(DB_overlap_DBonly)
-
-#####################
-list_regulated_psites_wSD <- foldchange_imputed_wSD %>%
-                filter (comparison %in% c("EGF1min_vs_EGF0min", "EGF3min_vs_EGF0min", "EGF5min_vs_EGF0min", "EGF15min_vs_EGF0min")) %>% 
-                distinct(comparison, diff, adj_pval, gene_ref) %>%
-                group_by(comparison) %>%
-                mutate(total_psites = n_distinct(gene_ref)) %>%
-                ungroup() %>%
-                mutate(
-                  regulated_psite = case_when(
-                    adj_pval <= 0.05 & abs(diff) >= 1 ~ "regulated",
-                    TRUE ~ "not regulated")) %>% 
-  distinct(gene_ref, regulated_psite) %>% 
-  separate(gene_ref, into = c("gene", "position"), sep= "_Y", remove = FALSE) %>%
-  mutate(position = as.numeric(position)) %>% 
-  left_join(y = DB_overlap) %>% 
-  left_join(y = master_FASTA , by = c("gene","reference")) #%>% 
-#   mutate(
-#     num_regulated = case_when(
-#       regulated_psite == "regulated" ~ 1,
-#       regulated_psite == "not regulated" ~ 0,
-#       TRUE ~ 0)) %>% 
-#   group_by(reference, position, residue, gene_ref) %>% 
-#   mutate(
-#     sum_regulated = sum(num_regulated),
-#     once_regulated = case_when(
-#       sum_regulated > 0 ~ "regulated at least once",
-#       sum_regulated == 0 ~ "not at all regulated" ),
-#     mod_type_DB = paste(once_regulated, overlap_my_data, sep = "_")) %>% 
-#   ungroup()
-# #use 'once_regulated' to indicate if site is consdered regulated, in at least one time point relative to untreated.
-#   
-  
-  
-
-write_csv(x = list_regulated_psites_wSD, file = "modified_data/MainFig3to6_SuppFig9to15/pTyrSiteLevel/master_list_REG_vs_NOTREG_pY.csv")
-```
 
 
 ####___ii. total regulated p-sites after imputation
@@ -4891,6 +4848,80 @@ sig_reg_pYsites_imputedwSD <- psite_diff_abundance_gene_2xDB_imputed_forvolcano 
   
 ```
 
+### REF LIST of regulated vs. not regulated for App and other uses
+```{r}
+# 
+# ######################
+# DB_overlap <- psite_diff_abundance_gene_2xDB_imputed_forvolcano %>%
+#   filter(!is.na(reference)) %>% #join in DB only that was lacking reference below, added above.
+#              distinct(reference, gene, mod_res, mod_residue, overlap_my_data) %>%
+# 
+#   rename(position = mod_residue)
+# 
+# 
+# #####################
+# #genes to convert via uniprot or toher for reference
+# genes_to_convert_to_uniprot <- DB_overlap %>% distinct(gene)
+# 
+# 
+# 
+# # Connect to the Ensembl BioMart
+# ensembl <- useMart("ensembl", dataset = "hsapiens_gene_ensembl")
+# 
+# # Example gene list
+# genes <- genes_to_convert_to_uniprot$gene
+# 
+# # Query: gene name ??? UniProt accession
+# mapping <- getBM(
+#   attributes = c("hgnc_symbol", "uniprotswissprot"),  # SwissProt is reviewed entries
+#   filters = "hgnc_symbol",
+#   values = genes,
+#   mart = ensembl
+# )
+# 
+# mapping <- mapping %>% filter(str_length(uniprotswissprot) > 0) %>% rename(gene = hgnc_symbol) %>% rename(reference = uniprotswissprot)
+# 
+# 
+# ######################
+# DB_overlap_DBonly <- psite_diff_abundance_gene_2xDB_imputed_forvolcano %>%
+#   filter(is.na(reference)) %>%
+#    distinct( gene, mod_res, mod_residue, overlap_my_data) %>%
+#   left_join(y = mapping, by = "gene") %>%
+# 
+# 
+#   rename(position = mod_residue) %>%
+#   # rename(acc = reference) %>%
+#   rename(residue = mod_res)
+# 
+# #######################
+# DB_overlap <-  DB_overlap %>%  rbind(DB_overlap_DBonly)
+# 
+# 
+# 
+# 
+# 
+# 
+# #####################
+# list_regulated_psites_wSD <- foldchange_imputed_wSD %>%
+#                 filter (comparison %in% c("EGF1min_vs_EGF0min", "EGF3min_vs_EGF0min", "EGF5min_vs_EGF0min", "EGF15min_vs_EGF0min")) %>%
+#                 distinct(comparison, diff, adj_pval, gene_ref) %>%
+#                 group_by(comparison) %>%
+#                 mutate(total_psites = n_distinct(gene_ref)) %>%
+#                 ungroup() %>%
+#                 mutate(
+#                   regulated_psite = case_when(
+#                     adj_pval <= 0.05 & abs(diff) >= 1 ~ "regulated",
+#                     TRUE ~ "not regulated")) %>%
+#   distinct(gene_ref, regulated_psite) %>%
+#   separate(gene_ref, into = c("gene", "position"), sep= "_Y", remove = FALSE) %>%
+#   mutate(position = as.numeric(position)) %>%
+#   left_join(y = DB_overlap) %>%
+#   left_join(y = master_FASTA , by = c("gene","reference"))
+# 
+# 
+# 
+# write_csv(x = list_regulated_psites_wSD, file = "modified_data/MainFig3to6_SuppFig9to15/pTyrSiteLevel/master_list_REG_vs_NOTREG_pY.csv")
+```
 
 #### . . .  . barplot DB2x vs. my data
 plot database overlaps
@@ -5134,7 +5165,7 @@ ggsave(filename = "output/MainFig3to6_SuppFig9to15/pTyrSiteLevel/boxplot_pval_di
 ###__e. TOTAL PROTEOME VS. pY CHANGES
 ```{r}
 #proteins showing differential abundance at proteome level
-changing_proteins_TP_df <- read_csv("modified_data/MainFig3to6_SuppFig9to15/DDA_TP/proteins_diff_abundance_less.csv") %>% 
+changing_proteins_TP_df <- read_csv("raw_data/MainFig3to6_SuppFig9to15/Proteome/proteins_diff_abundance_less.csv") %>% 
   mutate(comparison = case_when(
     comparison == "0_vs_15" ~ "EGF15min_vs_EGF0min",
     comparison == "0_vs_5" ~ "EGF5min_vs_EGF0min",
@@ -5262,13 +5293,13 @@ gene_3xDB_overlap_upset_df <-  PSP_vs_PTMSigDB_EGF %>%
       WP437_upset = case_when(
       WP437 == TRUE ~ 1, 
       TRUE ~ 0)) %>% 
-  select(gene, PSP_upset, PTM_SEA_upset,  WP437_upset) %>% 
-  rename(PSP = PSP_upset) %>% 
-  rename(PTM_SEA =  PTM_SEA_upset) %>% 
+  dplyr::select(gene, PSP_upset, PTM_SEA_upset,  WP437_upset) %>% 
+  dplyr::rename(PSP = PSP_upset) %>% 
+  dplyr::rename(PTM_SEA =  PTM_SEA_upset) %>% 
   # rename(PPDIA= PPDIA_upset) %>% 
-  rename(WP437 = WP437_upset) %>% 
-  select(PSP, PTM_SEA, WP437) %>% 
-  mutate_all(.funs = as.numeric) %>% 
+  dplyr::rename(WP437 = WP437_upset) %>% 
+  dplyr::select(PSP, PTM_SEA, WP437) %>% 
+  dplyr::mutate(across(everything(), as.numeric)) %>%  
   as.matrix() %>% 
   as.data.frame()
 
@@ -5619,12 +5650,12 @@ logo_DBs_only_noY <- ggplot() +
 
  p <- gridExtra::grid.arrange(logo_this_study_noY, logo_both_noY, logo_DBs_only_noY)
 
-pdf("bits_motif_thisstudy_vs_both_vs_DBs.pdf", width = 7, height = 8) # Open a new pdf file
+pdf("output/MainFig3to6_SuppFig9to15/pTyrSiteLevel/bits_motif_thisstudy_vs_both_vs_DBs.pdf", width = 7, height = 8) # Open a new pdf file
 gridExtra::grid.arrange(logo_this_study_noY, logo_both_noY, logo_DBs_only_noY) # Write the grid.arrange in the file
 dev.off() # Close the file
 
 
-ggsave("bits_motif_thisstudy_vs_both_vs_DBs.png", p, width = 4, height = 12)
+ggsave("output/MainFig3to6_SuppFig9to15/pTyrSiteLevel/bits_motif_thisstudy_vs_both_vs_DBs.png", p, width = 4, height = 12)
 ```
 Even after fixing up the DB matching, the logos and numbers are pretty much the same. I will need to update 1-26-2025.
 
@@ -5672,7 +5703,7 @@ I like without Y better for visualization.
 Combine the outputs from the PSP motif tool into a single csv file. Input into the PSP tool were the centered motif txt files above. 
 the motif enrichment tool returns a pvalue, z-score, fold change, foreground and background matches. For motifs with p-value of 0, I turned p-value 1e-15 to be just slightly lower than the lowest pvalue.
 ```{r}
-combined_motifs <- read_csv("modified_data/MainFig3to6_SuppFig9to15/pTyrSiteLevel/PSP motif analysis tool/this study vs shared with databases/combined_motifs.csv") %>%
+combined_motifs <- read_csv("raw_data/MainFig3to6_SuppFig9to15/TyrPhospho/PSP_motif_analysis_tool/this_study_vs_shared_with_databases/combined_motifs.csv") %>%
   clean_names() %>%
   mutate(ratio_found = foreground_matches/ foreground_size,
          motif = str_replace_all(motif, "\\.", " . "))
@@ -5744,9 +5775,9 @@ barplot_motifs4 <- ggplot(data = combined_motifs %>% mutate(overlap_my_data = fc
 barplot_motifs4
 
 
-ggsave(filename = "modified_data/MainFig3to6_SuppFig9to15/pTyrSiteLevel/PSP motif analysis tool/this study vs shared with databases/DBs only pY EGF sites/combined_motifs_ratiofound_option4.png", plot = barplot_motifs4, width = 8, height = 7, scale = 0.8)
+ggsave(filename = "modified_data/MainFig3to6_SuppFig9to15/pTyrSiteLevel/PSP_motif_analysis_tool/this_study_vs_shared_with_databases/DBs_only_pY_EGF_sites/combined_motifs_ratiofound_option4.png", plot = barplot_motifs4, width = 8, height = 7, scale = 0.8)
 
-ggsave(filename = "modified_data/MainFig3to6_SuppFig9to15/pTyrSiteLevel/PSP motif analysis tool/this study vs shared with databases/DBs only pY EGF sites/combined_motifs_ratiofound_option4.pdf", plot = barplot_motifs4, width = 9, height = 6, scale = 0.8)
+ggsave(filename = "modified_data/MainFig3to6_SuppFig9to15/pTyrSiteLevel/PSP_motif_analysis_tool/this_study_vs_shared_with_databases/DBs_only_pY_EGF_sites/combined_motifs_ratiofound_option4.pdf", plot = barplot_motifs4, width = 9, height = 6, scale = 0.8)
 ```
 I need to feed in the flanked sequences again, particularly for the DB only sites which were cut down from 568 to 462.
 
@@ -6377,9 +6408,13 @@ ggsave(filename = "output/MainFig3to6_SuppFig9to15/pTyrSiteLevel/zscore_scaled_c
 ##### - - - my labeller function
 ```{r}
 #custom labeller function
-my_labeller <-  function (variable, value) {
-  if (variable == "cluster") {
-    paste("Cluster", value, sep = " ") } else {value} }
+my_labeller <- function(labels) {
+  # labels is a data frame with columns = facet variables
+  if ("cluster" %in% names(labels)) {
+    labels$cluster <- paste("Cluster", labels$cluster)
+  }
+  labels
+}
 ```
 
 
@@ -6800,7 +6835,7 @@ row_annotations <- as.data.frame(row_annotations)
 
 
 #write to csv for shiny
-write.csv(x = row_annotations, file = "modified_data/MainFig3to6_SuppFig9to15/pTyrSiteLevel/shiny_input/heatmap_row_annotations.csv")
+write.csv(x = row_annotations, file = "modified_data/MainFig3to6_SuppFig9to15/pTyrSiteLevel/heatmap_row_annotations.csv")
 ```
 
 
@@ -6850,7 +6885,7 @@ zscore_cmeans_clustering_matrix_reps_ordered_df1 <- zscore_cmeans_clustering_mat
 
 
 #write csv for shiny--------------------------------------------------------------
-write_csv(x = zscore_cmeans_clustering_matrix_reps_ordered_df1, file = "modified_data/MainFig3to6_SuppFig9to15/pTyrSiteLevel/shiny_input/heatmap_df.csv")
+write_csv(x = zscore_cmeans_clustering_matrix_reps_ordered_df1, file = "modified_data/MainFig3to6_SuppFig9to15/pTyrSiteLevel/SHINY_heatmap_df.csv")
 #---------------------------------------------------------------------------------
 
 #for input into heatmap with fuzzy cmeans clustering orders (soft cluster)
@@ -6859,7 +6894,7 @@ zscore_cmeans_clustering_matrix_reps_ordered_matrix <- as.matrix(zscore_cmeans_c
 rownames(zscore_cmeans_clustering_matrix_reps_ordered_matrix) <- zscore_cmeans_clustering_matrix_reps_ordered_df1[,1]
 
 #save for shiny
-write.csv(zscore_cmeans_clustering_matrix_reps_ordered_matrix, file = "modified_data/MainFig3to6_SuppFig9to15/pTyrSiteLevel/shiny_input/zscore_cmeans_clustering_matrix_reps_ordered_matrix.csv")
+write.csv(zscore_cmeans_clustering_matrix_reps_ordered_matrix, file = "modified_data/MainFig3to6_SuppFig9to15/pTyrSiteLevel/SHINY_zscore_cmeans_clustering_matrix_reps_ordered_matrix.csv")
 
 
 #PHEATMAP
@@ -7252,7 +7287,7 @@ I think I need to normalize the intensities prior to clustering because I am als
 ```{r}
 # Write for shiny boxplots covering only regulated pY sites
 
-write_csv(ascore_gene_clusters_Imputation_noSD, file = "modified_data/MainFig3to6_SuppFig9to15/pTyrSiteLevel/shiny_input/boxplot_input_dataframe.csv")
+write_csv(ascore_gene_clusters_Imputation_noSD, file = "modified_data/MainFig3to6_SuppFig9to15/pTyrSiteLevel/SHINY_boxplot_input_dataframe.csv")
 ```
 
 ###__ii. run function to plot many PNGs
@@ -7363,7 +7398,7 @@ CST_EGFR_proteins <- c("P00533","P42336","Q9Y243","P42345","P23443","P15498","P6
 #                                                    # filter(grepl("STAT", gene) ==TRUE) %>% 
 #                                                    # filter(reference %in% CST_EGFR_proteins) %>%
 #                                                    distinct(gene_ref))$gene_ref,strip_text_color = "black",
-#                              dataframe = ascore_gene_clusters_Imputation_noSD %>% distinct(gene, gene_ref, condition, replicate, sample_id, median_norm_intensity, cluster, n_obs) %>% mutate(condition = fct_relevel(condition, "EGF0min", "EGF1min", "EGF3min", "EGF5min", "EGF15min")), output_dir = "output/MainFig3to6_SuppFig9to15/pTyrSiteLevel/EGF_pathway/", strip_color = "pink")
+#                              dataframe = ascore_gene_clusters_Imputation_noSD %>% distinct(gene, gene_ref, condition, replicate, sample_id, median_norm_intensity, cluster, n_obs) %>% mutate(condition = fct_relevel(condition, "EGF0min", "EGF1min", "EGF3min", "EGF5min", "EGF15min")), output_dir = "output/MainFig3to6_SuppFig9to15/pTyrSiteLevel/", strip_color = "pink")
 
 
 ```
@@ -10800,9 +10835,9 @@ zscore_EGFR_pheatmap_condition_noSD_CST <- pheatmap(zscore_EGFR_matrix_condition
          annotation_row = row_annotations_condition, annotation_colors = my_colour_condition,
          treeheight_row = 1)
 
-ggsave(filename = "output/MainFig3to6_SuppFig9to15/pTyrSiteLevel/EGF_pathway/pheatmap_imputed_zscore_EGFR_condition_CST_gene_noSD.pdf", plot = zscore_EGFR_pheatmap_condition_noSD_CST , width = 12, height = 60, scale =0.4)
+ggsave(filename = "output/MainFig3to6_SuppFig9to15/pTyrSiteLevel/pheatmap_imputed_zscore_EGFR_condition_CST_gene_noSD.pdf", plot = zscore_EGFR_pheatmap_condition_noSD_CST , width = 12, height = 60, scale =0.4)
 
-ggsave(filename = "output/MainFig3to6_SuppFig9to15/pTyrSiteLevel/EGF_pathway/pheatmap_imputed_zscore_EGFR_condition_CST_gene_noSD.png", plot = zscore_EGFR_pheatmap_condition_noSD_CST , width = 5, height = 40, scale = 0.5, limitsize = TRUE)
+ggsave(filename = "output/MainFig3to6_SuppFig9to15/pTyrSiteLevel/pheatmap_imputed_zscore_EGFR_condition_CST_gene_noSD.png", plot = zscore_EGFR_pheatmap_condition_noSD_CST , width = 5, height = 40, scale = 0.5, limitsize = TRUE)
 ```
 
 

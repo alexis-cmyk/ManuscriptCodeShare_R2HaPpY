@@ -41,7 +41,6 @@ library(cowplot)
 library(reshape2)
 library(eulerr)
 library(protti)
-library(diann)
 library(iq)
 library(RColorBrewer)
 #for PCA loadings
@@ -649,7 +648,7 @@ plot_distinct_p_sites_reps <- ggplot(data = distinct_p_sites_reps) +
   theme_bw(18) +
   scale_fill_viridis_d() +
   ylab("unique phospho sites") +
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.25, hjust = 1))
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.25, hjust = 1, size = 6))
 
 plot_distinct_p_sites_reps
 
@@ -858,12 +857,12 @@ plot_distinct_p_sites_condition_reps_wPTS <- ggplot() +
   scale_color_manual(values = rep(c("grey70" ),60)) +
   ylab("unique phospho sites")   +
   alexis_theme()+
-  scale_y_continuous(expand = c(0,0), limits = c(0, 4500), breaks = c(seq(0, 4000, 1000))
+  scale_y_continuous(expand = c(0,0), limits = c(0, 8000), breaks = c(seq(0, 8000, 1000)))
 
 plot_distinct_p_sites_condition_reps_wPTS
 
-ggsave("output/SuppFig7/distinct_p_sites_condition_wPTS.png", plot = plot_distinct_p_sites_condition_reps_wPTS, width = 6, height = 6, scale = 0.4)
-ggsave("output/SuppFig7/distinct_p_sites_condition_wPTS.pdf", plot = plot_distinct_p_sites_condition_reps_wPTS, width = 6, height = 6, scale = 0.4)
+ggsave("output/SuppFig7/distinct_p_sites_condition_wPTS.png", plot = plot_distinct_p_sites_condition_reps_wPTS, width = 6, height = 12, scale = 0.4)
+ggsave("output/SuppFig7/distinct_p_sites_condition_wPTS.pdf", plot = plot_distinct_p_sites_condition_reps_wPTS, width = 6, height = 12, scale = 0.4)
 ```
 
 ####___iv) focus on pY

@@ -1866,11 +1866,11 @@ ascore_final_gene <- ascore_fasta_protein_mod_loc_sum_isoform %>%
 
 ####--- Save input data for SHINY
 ```{r}
-# write_csv(x = ascore_final_gene %>% mutate(gene_ref = paste(gene, isoform_cluster, sep = "_")), file = "modified_data/DDA_YP/isoform_SHINY_input.csv")
+# write_csv(x = ascore_final_gene %>% mutate(gene_ref = paste(gene, isoform_cluster, sep = "_")), file = "modified_data/MainFig3to6_SuppFig9to15/pTyrIsoformLevel/isoform_SHINY_input.csv")
 ```
 
 ```{r}
-most_common_protein_family_per_site <- read_csv("modified_data/DDA_YP/EGF_stim/noPOOL/min_3reps_once/PUB/KEY_most_common_protein_family_per_site.csv")
+most_common_protein_family_per_site <- read_csv("modified_data/MainFig3to6_SuppFig9to15/pTyrSiteLevel/KEY_most_common_protein_family_per_site.csv")
 ```
 
 
@@ -1884,7 +1884,7 @@ SHINY_pY_isoforms <- ascore_final_gene %>%
          ambiguous = case_when(redundancy == 0 ~ "single protein assignment",
                                redundancy >=1 ~ paste("ambiguous protein assignment,", redundancy +1, "proteins", sep = " ")))
 
-write_csv(x = SHINY_pY_isoforms, file = "modified_data/DDA_YP/pY_ISOFORM_input.csv")
+write_csv(x = SHINY_pY_isoforms, file = "modified_data/MainFig3to6_SuppFig9to15/pTyrIsoformLevel/pY_ISOFORM_input.csv")
 ```
 
 ##_b) EGFR pSTY-isoforms
@@ -2276,7 +2276,7 @@ ggsave(filename = "output/MainFig3to6_SuppFig9to15/pTyrIsoformLevel/EGFR1_overla
 # 
 # colnames(PTMNav_isoform_input) <- c("Protein IDs", "p-site", "Experiment", "Fold change", "adjusted pvalue", "Regulation")
 # 
-# write_csv(x = PTMNav_isoform_input, file = "modified_data/DDA_YP/PTMNav_isoform_input.csv")
+# write_csv(x = PTMNav_isoform_input, file = "modified_data/MainFig3to6_SuppFig9to15/pTyrIsoformLevel/PTMNav_isoform_input.csv")
 ```
 
 
