@@ -90,6 +90,8 @@ renv::restore()
 ---
 ## Contact Information
 
+Alexis Chang, code author, Graduate Student
+
 Judit Villen Laboratory
 
 Genome Sciences, University of Washington, Seattle
