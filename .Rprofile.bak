@@ -1,11 +1,5 @@
-options(repos = c(
-  CRAN       = "https://cran.r-project.org",
-  BioCsoft   = "https://bioconductor.org/packages/3.22/bioc",
-  BioCann    = "https://bioconductor.org/packages/3.22/data/annotation",
-  BioCexp    = "https://bioconductor.org/packages/3.22/data/experiment"
-))
-
-# Tell renv not to query BiocManager/BiocVersion
+# Force renv to use Bioconductor 3.22 repos directly,
+# so it doesn't call BiocManager / BiocVersion at startup.
 options(
   renv.bioconductor.repos = c(
     BioCsoft      = "https://bioconductor.org/packages/3.22/bioc",

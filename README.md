@@ -22,9 +22,10 @@ Large raw CSV files (Comet search results, Ascore outputs, FASTA files, etc.) ar
 ## 🚀 Quick Start: Generate All Figures
 
 Download the zip file containing folders raw_data/, output/, and modified_data/ from `Releases` and place in this R project directory.
-Then, run this single command in your R console (inside the R project):
+Then, run these two commands in your R console (inside the R project):
 
 ```r
+renv::restore()
 source("00_master_run_all_figures.R")
 ```
 
