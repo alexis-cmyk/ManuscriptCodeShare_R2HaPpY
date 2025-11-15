@@ -66,7 +66,7 @@ Processed and intermediate data tables used in the figure-generation scripts (e.
 
 All figures in the manuscript reliant on custom code can be regenerated using:
 - Download and unzip file from Releases section into your local clone of this RProject: *raw_data/*, *output/*, *modified_data/*
-  - [!TIP] *output/* and *modified_data/* folders are empty, while *raw_data/* is populated.
+  - **TIP** *output/* and *modified_data/* folders are empty, while *raw_data/* is populated.
 
 - Individual figure-specific scripts can be run in isolation.
   - Figures are deposited into figure-specific sub-directories within `output`
