@@ -91,42 +91,41 @@ renv::restore()
 ---
 ### 🔧 Reproducing the R Environment (renv)
 
-This project uses renv to provide a fully reproducible R environment, including exact package versions for R 4.5.1 and Bioconductor 3.22.
+This project uses renv to provide a fully reproducible R environment, including exact package versions for **R 4.5.1** and **Bioconductor 3.22**.
 To recreate the environment on any system:
 
 #### 1. Install the required R version
 
 This project was developed using:
 
-R 4.5.1
+- **R 4.5.1**
 
-Bioconductor 3.22
+- **Bioconductor 3.22**
 
-Download R 4.5.1:
-https://cran.r-project.org/bin/windows/base/
+  - Download R 4.5.1: https://cran.r-project.org/bin/windows/base/
 
-Using the matching R version ensures renv::restore() works without package conflicts.
+    - Using the matching R version ensures renv::restore() works without package conflicts.
 
 #### 2. Install renv
 
-Inside R (from the project directory), run:
+_Inside R (from the project directory), run:_
 
 `install.packages("renv")`
 
 #### 3. Restore the environment
 
-Run:
+_Run:_
 
 `renv::restore()`
 
 
-This will:
+_This will:_
 
-Read the renv.lock file
+- Read the renv.lock file
 
-Install all required CRAN and Bioconductor packages
+- Install all required CRAN and Bioconductor packages
 
-Recreate the exact software environment used for all analyses and figures
+- Recreate the exact software environment used for all analyses and figures
 
 All Bioconductor repositories (3.22) are automatically configured via the project’s .Rprofile.
 
@@ -134,18 +133,19 @@ All Bioconductor repositories (3.22) are automatically configured via the projec
 
 Once the restore completes, you can run all R scripts, R Markdown files, and Shiny applications using the exact package versions used originally.
 
-Notes
-• renv/library/ is not included in the repo
+_Notes:_
 
-renv will create this directory automatically on your machine.
+- renv/library/ is not included in the repo
 
-• No need to install Bioconductor manually
+- renv will create this directory automatically on your machine.
+
+- No need to install Bioconductor manually
 
 The correct Bioconductor repositories (3.22) are applied automatically.
 
-• If restore fails
+_If restore fails_
 
-Verify you are using R 4.5.1, then try:
+- Verify you are using R 4.5.1, then try:
 
 `renv::rebuild()`
 `renv::restore()`
