@@ -89,12 +89,12 @@ To reproduce the full environment:
 renv::restore()
 ```
 ---
-###🔧 Reproducing the R Environment (renv)
+### 🔧 Reproducing the R Environment (renv)
 
 This project uses renv to provide a fully reproducible R environment, including exact package versions for R 4.5.1 and Bioconductor 3.22.
 To recreate the environment on any system:
 
-####1. Install the required R version
+#### 1. Install the required R version
 
 This project was developed using:
 
@@ -107,13 +107,13 @@ https://cran.r-project.org/bin/windows/base/
 
 Using the matching R version ensures renv::restore() works without package conflicts.
 
-####2. Install renv
+#### 2. Install renv
 
 Inside R (from the project directory), run:
 
 `install.packages("renv")`
 
-####3. Restore the environment
+#### 3. Restore the environment
 
 Run:
 
@@ -130,7 +130,7 @@ Recreate the exact software environment used for all analyses and figures
 
 All Bioconductor repositories (3.22) are automatically configured via the project’s .Rprofile.
 
-####4. Begin working
+#### 4. Begin working
 
 Once the restore completes, you can run all R scripts, R Markdown files, and Shiny applications using the exact package versions used originally.
 
