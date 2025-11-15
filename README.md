@@ -16,6 +16,17 @@ The codebase includes:
 
 Large raw CSV files (Comet search results, Ascore outputs, FASTA files, etc.) are not stored in the repository due to GitHub file-size limits, but are provided as release assets (see “Data availability” below).
 
+## 🚀 Quick Start: Generate All Figures
+
+Download the raw_data, output, and modified_data zip files from `Releases` and place in this R project directory.
+Then, run this single command in your R console (inside the R project):
+
+```r
+source("00_master_run_all_figures.R")
+```
+
+
+
 ---
 
 ## Interactive Dataset
