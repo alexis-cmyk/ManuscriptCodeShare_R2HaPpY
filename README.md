@@ -4,15 +4,14 @@
 This repository contains all analysis scripts, figure-generation code, and search results used to reproduce the results of the manuscript:
 
 **“Phosphotyrosine Proteomics Using a Scalable SH2 Superbinder Enrichment Strategy.”**
-**[BioRxiv Preprint] (https://www.biorxiv.org/content/10.1101/2025.05.14.653984v1)**
+**[BioRxiv Preprint](https://www.biorxiv.org/content/10.1101/2025.05.14.653984v1)**
 
 The codebase includes:
-- R scripts used to process phosphoproteomics, global phosphoproteome, and proteome datasets  
+- R scripts used to process phosphoproteomics, global phosphoproteome, and proteome datasets for both method optimization and biological application.  
 - Figure-generation pipelines for all Main Figures and Supplementary Figures  
-- Shiny-based interactive visualization modules  
 - Processed data tables required for reproducing plots  
 
-Large raw CSV files (Comet search results, AScore outputs, redundancy tables, etc.) are not stored in the repository due to GitHub file-size limits, but are provided as release assets (see “Data availability” below).
+Large raw CSV files (Comet search results, Ascore outputs, FASTA files, etc.) are not stored in the repository due to GitHub file-size limits, but are provided as release assets (see “Data availability” below).
 
 ---
 
@@ -22,7 +21,7 @@ An interactive, browser-based version of the full R2HaPpY dataset is hosted at:
 
 ➡ **https://r2happy.gs.washington.edu**
 
-This site allows exploration of phosphorylation patterns, gene-level filtering, replicate variability, and downstream functional annotation analyses.
+This site allows exploration of phosphorylation patterns, gene-level filtering, replicate variability, and downstream functional annotation analyses from the EGF stimulation timecourse of HeLa cells.
 
 ---
 
@@ -30,7 +29,7 @@ This site allows exploration of phosphorylation patterns, gene-level filtering, 
 
 The full experimental workflow, including SH2 Superbinder expression, bead preparation, enrichment, and LC-MS/MS acquisition is documented on protocols.io:
 
-➡ **[https://www.protocols.io/private/48FD48C3977A11F0A3900A58A9FEAC02]**
+➡ **[Protocols.io Link](https://www.protocols.io/private/48FD48C3977A11F0A3900A58A9FEAC02]**
 
 ---
 
@@ -48,18 +47,20 @@ Processed and intermediate data tables used in the figure-generation scripts (e.
 
 ## Reproducing figures
 
-All figures in the manuscript can be regenerated using:
+All figures in the manuscript reliant on custom code can be regenerated using:
 
 
 - Individual figure-specific scripts titled by figure(s).
-- Figures are deposited into figure-specific subdirectories within `output`
-- Tables are depositied into figure-specific subdirectories within `modified_data`
+  - Figures are deposited into figure-specific sub-directories within `output`
+  - Tables are deposited into figure-specific sub-directories within `modified_data`
 
 - To generate all figures with one command, in console within this Rproject, run: `source("00_master_run_all_figures.R")`
   - This file points to each figure specific script: `R/00_master_run_all_figures.R`
 
+- The Shiny application enabling interactive re-analysis and visualization *[here](https://r2happy.gs.washington.edu)*
 
-- A Shiny application enabling interactive re-analysis and visualization (`shiny/`) at https://r2happy.gs.washington.edu*
+---
+## Dependencies
 
 Dependencies are managed using **renv**.  
 To reproduce the full environment:
