@@ -56,7 +56,7 @@ All figures in the manuscript can be regenerated using:
 - Tables are depositied into figure-specific subdirectories within `modified_data`
 
 - To generate all figures with one command, in console within this Rproject, run: `source("00_master_run_all_figures.R")`
-- This file points to each figure specific script: `R/00_master_run_all_figures.R`
+  - This file points to each figure specific script: `R/00_master_run_all_figures.R`
 
 
 - A Shiny application enabling interactive re-analysis and visualization (`shiny/`) at https://r2happy.gs.washington.edu*
