@@ -1,0 +1,944 @@
+## ----setup, include=FALSE--------------------------------------------------------------------------------------------------------------------------
+knitr::opts_chunk$set(echo = TRUE)
+
+
+## --------------------------------------------------------------------------------------------------------------------------------------------------
+library(tidyverse)
+library(janitor)
+library(readr)
+library(gridExtra)
+library(ggrepel)
+library(cowplot)
+library(reshape2)
+library(eulerr)
+library(protti)
+library(iq)
+library(RColorBrewer)
+#for PCA loadings
+library(FactoMineR)
+
+#for protti sample correlation and volcano plots
+library(dendextend)
+library(pheatmap)
+library(seriation)
+library(UpSetR)
+
+
+## --------------------------------------------------------------------------------------------------------------------------------------------------
+human_fasta_2024 <- read_csv("raw_data/MainFig3to6_SuppFig9to15/sp_reviewed_UP000005640_2024_03_21_forR.csv") 
+
+
+
+#subcellular location analysis:
+fasta_subcellular_location <- read_tsv("raw_data/MainFig3to6_SuppFig9to15/uniprotkb_proteome_UP000005640_2024_10_16_locations.txt") %>% clean_names() %>% 
+  rename(reference = entry) %>% 
+  filter(grepl("HUMAN", sequence) == FALSE) #remove titin which was annotated oddly
+
+
+## --------------------------------------------------------------------------------------------------------------------------------------------------
+alexis_theme <- function() {
+  theme(
+    # panel.border = element_rect(colour = "blue", fill = NA, linetype = 2),
+    panel.border = element_blank(),
+    panel.background = element_blank(),
+    panel.grid.major.x  = element_blank(),
+    panel.grid.minor = element_blank(),
+    # axis.text.x = element_text(angle = 90, vjust = 0.25, hjust = 1),
+    axis.text.x = element_text(angle = 0, vjust = 0.0, hjust = 0.5),
+    axis.line = element_line(colour = "black"),
+    axis.text = element_text(colour = "black", face = "plain", family = "sans", size = 14),
+    axis.title = element_text(colour = "black", family = "sans", size = 14),
+    axis.ticks = element_line(colour = "black"),
+    title = element_text(size = 8, hjust = 0.5),
+    strip.text = element_text(size= 12, family = "sans"),
+    # legend at the bottom 6)
+    legend.position = "right")   
+}
+
+
+
+## --------------------------------------------------------------------------------------------------------------------------------------------------
+# df_BCA <- read_csv("raw_data/MainFig3to6_SuppFig9to15/20240117_AC073_quants.csv") %>%
+#   clean_names() %>% 
+#   rename(condition_rep = sample) %>% 
+#   rename(condition_numeric = condition) %>% 
+#   mutate(
+#     condition = str_sub(condition_rep, start = 1L, end = 1L),
+#     replicate = str_sub(condition_rep, start = -1L) )
+# 
+# head(df_BCA)
+
+
+## --------------------------------------------------------------------------------------------------------------------------------------------------
+# plotA <- ggplot(data = df_BCA) + 
+#   geom_boxplot(mapping = aes(x = fct_reorder(condition, condition_numeric),
+#                              y = mgs_final, fill = condition), alpha = 0.1) +
+#   geom_point(mapping = aes(x = fct_reorder(condition, condition_numeric),
+#                            y = mgs_final, color = condition), size = 2, shape = 1, stroke = 1) +
+#   ylab("mgs protein per plate") +
+#   xlab("cell condition") +
+#   theme_bw(18)
+# 
+# plotA
+# 
+# ggsave("output/MainFig3to6_SuppFig9to15/AC073_plate_protein_amounts.png", plot = plotA, width = 16, height = 10, scale = 0.4)
+
+
+## --------------------------------------------------------------------------------------------------------------------------------------------------
+comet <- read_csv("raw_data/MainFig3to6_SuppFig9to15/Proteome/comet/result.csv") %>%
+  clean_names() %>%
+  separate(col = sample_name,
+           into = c("exp", "condition","replicate", "fraction", "MSmethod", "inj_amt"), sep = "_", remove = FALSE) %>%
+  mutate(condition_numeric =
+           case_when(
+             condition == "CONTROL" ~ 0,
+             condition == "EGF1min" ~ 01,
+             condition == "EGF3min" ~ 03,
+             condition == "EGF5min" ~ 05,
+             condition == "EGF15min" ~ 15)) %>%
+
+
+
+  #join to FASTA
+  left_join(y = human_fasta_2024, by = c("reference")) %>%
+
+
+  ##clarify intensity column
+  rename(intensity = max_intensity_light_c2837) %>%
+
+
+  ##keep only forward hits
+  filter(reverse == FALSE)
+
+
+comet <- comet %>%
+  select(condition_numeric, condition, replicate,  sequence, intensity, reference, redundancy, charge,
+         missed_cleavages, x_corr, raw_file_name, reverse, full_protein_sequence, organism,
+         protein_names, length)
+
+write_csv(x = comet, file= "modified_data/MainFig3to6_SuppFig9to15/ProteomeLevel/comet_formatted.csv")
+
+comet <- read_csv(file = "modified_data/MainFig3to6_SuppFig9to15/ProteomeLevel/comet_formatted.csv")
+
+
+
+## --------------------------------------------------------------------------------------------------------------------------------------------------
+df_precursor <- comet %>%
+  group_by(condition_numeric, condition, replicate, reference, sequence, charge) %>% 
+  filter(intensity == max(intensity)) %>% 
+  ungroup() %>% 
+  mutate(
+    stripped_sequence = gsub("[^A-Z]", "", sequence)) %>% 
+  select(condition_numeric, condition, replicate, sequence, stripped_sequence, everything() )
+
+
+## --------------------------------------------------------------------------------------------------------------------------------------------------
+#replicate
+write_csv(x = df_precursor %>% distinct(condition, condition_numeric, replicate, sequence, charge,  intensity, reference,  protein_names), file = "modified_data/MainFig3to6_SuppFig9to15/ProteomeLevel/distinct_peptides_replicate.csv", col_names = TRUE)
+
+
+#condition
+write_csv(x = df_precursor %>% distinct(condition, condition_numeric, sequence, charge,  intensity, reference, protein_names), file = "modified_data/MainFig3to6_SuppFig9to15/ProteomeLevel/distinct_peptides_condition.csv", col_names = TRUE)
+
+
+## --------------------------------------------------------------------------------------------------------------------------------------------------
+df_sum_to_peptide <- df_precursor %>% 
+  
+  #sum precursor intensities
+  group_by(condition_numeric, condition, replicate, reference, stripped_sequence) %>% 
+  
+  mutate(
+    sum_precursor_to_peptide = sum(intensity),
+    log2_sumd_peptide_qty = log2(sum_precursor_to_peptide)) %>% 
+  ungroup() %>% 
+  distinct(condition_numeric, condition, replicate, reference, stripped_sequence,
+           missed_cleavages, sum_precursor_to_peptide, log2_sumd_peptide_qty,
+           full_protein_sequence, protein_names) %>% 
+  
+  #median normalize
+  mutate(
+    global_median_intensity_peptide = median(log2_sumd_peptide_qty)) %>% 
+  group_by(condition, replicate) %>% 
+  mutate(
+    sample_median_intensity_peptide = median(log2_sumd_peptide_qty)) %>% 
+  ungroup() %>% 
+  mutate(
+    median_norm_log2_intensity_peptide = log2_sumd_peptide_qty - sample_median_intensity_peptide + global_median_intensity_peptide,
+    raw_norm_intensity_peptide = 2^median_norm_log2_intensity_peptide )%>% 
+  mutate(sample_id = paste(condition, replicate, sep = "_")) %>% 
+  mutate(condition_alpha = case_when(
+    condition_numeric == 0 ~ "A_control",
+    condition_numeric == 1 ~ "B_1min",
+    condition_numeric == 3 ~ "C_3min",
+    condition_numeric == 5 ~ "D_5min", 
+    condition_numeric == 15 ~ "E_15min"))
+
+
+#%>% 
+  # mutate(sample_id = fct_reorder(condition, replicate))
+
+
+
+## --------------------------------------------------------------------------------------------------------------------------------------------------
+df_sum_to_protein <- df_sum_to_peptide %>% 
+  group_by(condition_numeric, condition, replicate, reference) %>% 
+  mutate(
+    sum_peptide_to_protein = sum(sum_precursor_to_peptide),
+    log2_sumd_protein_qty = log2(sum_peptide_to_protein)) %>% 
+  ungroup() %>% 
+  distinct(condition_numeric, condition, replicate, reference, sum_peptide_to_protein, log2_sumd_protein_qty) %>% 
+  
+  
+  #median normalize
+  mutate(
+    global_median_intensity_protein = median(log2_sumd_protein_qty)) %>% 
+  group_by(condition_numeric, condition, replicate) %>% 
+  mutate(
+    sample_median_intensity_protein = median(log2_sumd_protein_qty)) %>% 
+  ungroup() %>% 
+  mutate(
+    median_norm_log2_intensity_protein = log2_sumd_protein_qty - sample_median_intensity_protein + global_median_intensity_protein,
+    raw_norm_intensity_protein = 2^median_norm_log2_intensity_protein ) %>% 
+  mutate(sample_id = paste(condition_numeric, condition, replicate, sep = "_")) %>% 
+  mutate(condition = fct_reorder(condition, condition_numeric))%>%
+  mutate(condition_alpha = case_when(
+    condition_numeric == 0 ~ "A_control",
+    condition_numeric == 1 ~ "B_1min",
+    condition_numeric == 3 ~ "C_3min",
+    condition_numeric == 5 ~ "D_5min", 
+    condition_numeric == 15 ~ "E_15min"))
+
+
+## --------------------------------------------------------------------------------------------------------------------------------------------------
+locations_FASTA_df_ratios <- fasta_subcellular_location %>% 
+   
+  mutate(
+    extracellular_TM = case_when(
+      grepl("extracellular|transmembrane", gene_ontology_cellular_component) == TRUE ~ TRUE,
+      TRUE ~ FALSE),
+    cell_membrane = case_when(
+      grepl("cell membrane|extracellular|transmembrane|plasma", gene_ontology_cellular_component) == TRUE ~ TRUE,
+      TRUE ~ FALSE),
+    nucleus = case_when(
+      grepl("nucleus|nucle", gene_ontology_cellular_component) == TRUE ~ TRUE,
+      TRUE ~ FALSE),
+    mitochondria = case_when(
+      grepl("mitochondr", gene_ontology_cellular_component) == TRUE ~ TRUE,
+      TRUE ~ FALSE),
+    cytoplasm = case_when(
+      grepl("cytoplasm|cytosol", gene_ontology_cellular_component) == TRUE ~ TRUE,
+      TRUE ~ FALSE),
+    ER_Golgi = case_when(
+      grepl("ndoplasmic|olgi", gene_ontology_cellular_component) == TRUE ~ TRUE,
+      TRUE ~ FALSE)) %>% 
+  mutate(
+    total_proteins = n_distinct(reference)) %>% 
+  
+  group_by(cell_membrane) %>% 
+  mutate(
+    ratio_membrane = n()/total_proteins) %>% 
+  ungroup() %>% 
+  mutate(comparison = "FASTA")
+
+
+## --------------------------------------------------------------------------------------------------------------------------------------------------
+total_distinct_proteins_inFASTA <- length((locations_FASTA_df_ratios %>% distinct(reference))$reference)
+total_distinct_proteins_inFASTA
+
+ratio_annotated_div_total_proteins_in_FASTA <- 33171 / total_distinct_proteins_inFASTA
+ratio_annotated_div_total_proteins_in_FASTA
+
+annotated_df_locations <- df_sum_to_protein %>% 
+  full_join(locations_FASTA_df_ratios, by = "reference") %>% 
+  mutate(
+    membrane = case_when(
+      grepl("Membrane", keywords) == TRUE ~ "membrane",
+      grepl("membrane", gene_ontology_cellular_component) == TRUE ~ "membrane",
+      TRUE ~ "named_protein"),
+    transmembrane = case_when(
+      grepl("Transmembrane", keywords) == TRUE ~ "transmembrane",
+      grepl("transmembrane", gene_ontology_cellular_component) == TRUE ~ "transmembrane",
+      TRUE ~ "named_protein"),
+    extracellular = case_when(
+      grepl("extracellular", keywords) == TRUE ~ "extracellular",
+      grepl("extracellular", gene_ontology_cellular_component) == TRUE ~ "extracellular",
+      TRUE ~ "named_protein"),
+    cytoplasm = case_when(
+      grepl("Cytoplasm", keywords) == TRUE ~ "cytoplasm",
+      grepl("cytoplasm", gene_ontology_cellular_component) == TRUE ~ "cytoplasm",
+      TRUE ~ "named_protein")) %>% 
+  mutate(detected = case_when(
+    is.na(condition) ~ "not_detected",
+    !is.na(condition) ~ "detected"))
+
+
+cytoplasm_detected <- annotated_df_locations %>% 
+  filter(cytoplasm == "cytoplasm") %>% #keep only cytoplasmic proteins
+  distinct(reference, detected) %>% 
+  group_by(detected) %>% 
+  summarize(
+    n_proteins = n()  ) %>% 
+  ungroup() %>% 
+  mutate(location = "cytoplasm") %>% 
+  pivot_wider(id_cols = location, names_from = detected, values_from = n_proteins)
+
+
+membrane_detected <- annotated_df_locations %>% 
+  filter(membrane == "membrane") %>% #keep only cytoplasmic proteins
+  distinct(reference, detected) %>% 
+  group_by(detected) %>% 
+  summarize(
+    n_proteins = n()  ) %>% 
+  ungroup() %>% 
+  mutate(location = "membrane") %>% 
+  pivot_wider(id_cols = location, names_from = detected, values_from = n_proteins)
+
+transmembrane_detected <- annotated_df_locations %>% 
+  filter(transmembrane == "transmembrane") %>% #keep only cytoplasmic proteins
+  distinct(reference, detected) %>% 
+  group_by(detected) %>% 
+  summarize(
+    n_proteins = n()  ) %>% 
+  ungroup() %>% 
+  mutate(location = "transmembrane") %>% 
+  pivot_wider(id_cols = location, names_from = detected, values_from = n_proteins)
+
+#all detections relative to FASTA potential detections
+any_annotated_NOTdetected <- annotated_df_locations %>% 
+  filter(!is.na(subcellular_location_cc)) %>% 
+  distinct(reference, detected) %>% 
+  group_by(detected) %>% 
+  summarize(
+    n_proteins = n()  ) %>% 
+  ungroup() %>% 
+  mutate(location = "any_annotated") %>% 
+  pivot_wider(id_cols = location, names_from = detected, values_from = n_proteins)
+
+
+any_NOTannotated_NOTdetected <- annotated_df_locations %>% 
+  filter(is.na(subcellular_location_cc)) %>% 
+  distinct(reference, detected) %>% 
+  group_by(detected) %>% 
+  summarize(
+    n_proteins = n()  ) %>% 
+  ungroup() %>% 
+  mutate(location = "any_unannotated") %>% 
+  pivot_wider(id_cols = location, names_from = detected, values_from = n_proteins)
+
+
+ratios_location <- rbind(cytoplasm_detected, membrane_detected, transmembrane_detected, any_annotated_NOTdetected, any_NOTannotated_NOTdetected) %>% 
+  mutate(ratio_location = detected/ (detected+ not_detected),
+         total_proteins = detected + not_detected)
+
+###### plot observed out of all possible proteins detected per FASTA ###########
+plot_location_ratios_TP1 <- ggplot(data = ratios_location %>% filter(location == "cytoplasm" | location == "transmembrane")) +
+  geom_col(mapping = aes(x = location, y = ratio_location, fill = location), color = "black", linewidth = 0.5, show.legend = FALSE) +
+  scale_fill_manual(values = c("#B8DE29FF", "#39568CFF","#287D8CFF" )) +
+  # geom_hline(mapping = aes(yintercept = 0.17), linewidth =1, color = "darkred", lty = 2) +
+  # geom_text(mapping = aes(x = 1.5, y = 0.172, label = "any annotated\nprotein" ), color = "darkred", lineheight = 1, size = 4) +
+  alexis_theme() +
+  theme(axis.text.x = element_text(angle = -60, hjust = 0, vjust = 0.75)) +
+  xlab("") +
+  scale_y_continuous(limits = c(0, 0.3), breaks = c(seq(0, 0.3, 0.05)), name = "ratio detected", expand = c(0,0))
+  
+
+plot_location_ratios_TP1
+
+ggsave (filename = "output/MainFig3to6_SuppFig9to15/ProteomeLevel/plot_location_ratios_forRachael_TP1.png", plot = plot_location_ratios_TP1, scale = 0.6, width =5, height = 8)
+
+
+
+###### plot observed out of all possible proteins detected per FASTA ###########
+plot_location_ratios_TP2 <- ggplot(data = ratios_location %>% filter(location != "membrane")) +
+  geom_col(mapping = aes(x = location, y = ratio_location, fill = location), color = "black", linewidth = 0.5) +
+  scale_fill_manual(values = c("#B8DE29FF", "#39568CFF","#287D8CFF", "#B8DE29FF", "#39568CFF","#287D8CFF" )) +
+  alexis_theme() +
+  theme(axis.text.x = element_text(angle = -60, hjust = 0, vjust = 0.75)) +
+  scale_y_continuous(limits = c(0, 0.5), breaks = c(seq(0, 0.5, 0.05)), name = "ratio detected", expand = c(0,0))
+  
+
+plot_location_ratios_TP2
+
+ggsave (filename = "output/MainFig3to6_SuppFig9to15/ProteomeLevel/plot_location_ratios_forRachael_TP2.png", plot = plot_location_ratios_TP2, scale = 0.4, width = 8, height = 8)
+
+
+## --------------------------------------------------------------------------------------------------------------------------------------------------
+qc_ids(data = df_sum_to_peptide,
+       sample = sample_id, 
+       grouping = stripped_sequence, 
+       intensity = median_norm_log2_intensity_peptide,
+       condition = condition_numeric,
+       title = "stripped sequence IDs per sample",
+       plot = TRUE)
+
+
+
+## --------------------------------------------------------------------------------------------------------------------------------------------------
+all_protein_ids <- qc_ids(data = df_sum_to_protein %>% mutate(sample_id = fct_reorder(sample_id, condition_numeric)),
+       sample = sample_id, 
+       grouping = reference, 
+       intensity = median_norm_log2_intensity_protein,
+       condition = condition_numeric,
+       title = "protein IDs per sample",
+       plot = TRUE)
+
+all_protein_ids
+
+ggsave("output/MainFig3to6_SuppFig9to15/ProteomeLevel/protti_unique_protein_IDs.png", plot = all_protein_ids, width = 15, height = 10, scale = 0.4)
+
+
+## --------------------------------------------------------------------------------------------------------------------------------------------------
+Nterm_peptides_list <- df_sum_to_peptide %>%
+  distinct(reference, stripped_sequence, full_protein_sequence) %>% 
+  mutate(peptide_position = str_locate(full_protein_sequence, stripped_sequence),
+         
+         #turn matrix into normal dataframe columns by binding columns explicitly
+         start = peptide_position[,1],
+         end = peptide_position[,2]) %>% 
+  select(-peptide_position) %>% 
+  filter(start <= 1) #get peptides with known N-terminal processing info measured. 
+#in total proteome data at least, the N-term methionine is added back to sequence even if clipped.
+
+                   
+
+#### dataframe with modified sequence and stripped sequence --------- 
+df_modified_and_stripped_seq <- df_precursor %>% 
+  
+  separate(col = sequence, into = c("NtermSeq", "mod_sequence"), sep = "\\.", remove = FALSE) %>% 
+  mutate(
+    real_stripped_seq = gsub("[^A-Z]", "", mod_sequence)) %>% 
+  #sum precursor intensities
+  group_by(condition_numeric, condition, replicate, reference, stripped_sequence) %>% 
+  
+  mutate(
+    sum_precursor_to_peptide = sum(intensity),
+    log2_sumd_peptide_qty = log2(sum_precursor_to_peptide)) %>% 
+  ungroup() %>% 
+  distinct(condition_numeric, condition, replicate, reference, stripped_sequence, sequence, mod_sequence, real_stripped_seq,
+           missed_cleavages, sum_precursor_to_peptide, log2_sumd_peptide_qty,
+           full_protein_sequence, protein_names)
+
+
+#analyze N-term modified peptides ------------------
+Nterm_peptides_df <- df_modified_and_stripped_seq %>% 
+  filter(stripped_sequence %in% Nterm_peptides_list$stripped_sequence) %>% 
+  mutate(
+    AAnotM_is_clipped = str_sub(real_stripped_seq, start = 1L, end = 1L),
+    npound_is_acetylated = str_sub(mod_sequence, start = 1L, end = 2L)) %>% 
+  mutate(
+    Nterm_mod_type_clip = case_when(
+      AAnotM_is_clipped == "M" ~ "not clipped",
+      AAnotM_is_clipped != "M" ~ "clipped"),
+    Nterm_mod_type_Acetylated = case_when(
+      grepl("n#", npound_is_acetylated) == TRUE ~ "acetylated",
+      grepl("n#", npound_is_acetylated) == FALSE ~ "not acetylated")) %>% 
+  
+  #final Nterm mod status
+  mutate(
+    N_term_mod_type = case_when(
+      Nterm_mod_type_clip == "not clipped" & Nterm_mod_type_Acetylated == "not acetylated" ~ "not clipped\nnot acetylated",
+      Nterm_mod_type_clip == "not clipped" & Nterm_mod_type_Acetylated == "acetylated" ~ "not clipped\nyes acetylated",
+      Nterm_mod_type_clip == "clipped" & Nterm_mod_type_Acetylated == "not acetylated" ~ "yes clipped\nnot acetylated",
+      Nterm_mod_type_clip == "clipped" & Nterm_mod_type_Acetylated == "acetylated" ~ "yes clipped\nyes acetylated",
+      TRUE ~ "not classified" ) ) %>% 
+
+
+  distinct(real_stripped_seq, N_term_mod_type) %>% 
+  group_by(N_term_mod_type) %>% 
+  mutate(
+    n_unique_stripped_peptides = n()) %>% 
+  ungroup()
+
+x_axis_labels = c("not clipped\nnot acetylated", "yes clipped\nnot acetylated", "not clipped\nyes acetylated", "yes clipped\nyes acetylated")
+
+plot_nterm_modtypes_condition <-  ggplot(data = Nterm_peptides_df) +
+  geom_bar(mapping = aes(x = N_term_mod_type), width = 0.5) + 
+  geom_text(data = Nterm_peptides_df %>% distinct(N_term_mod_type, n_unique_stripped_peptides), mapping = aes (x = N_term_mod_type, y = n_unique_stripped_peptides + 20, label = paste0(n_unique_stripped_peptides)), size = 5) +
+  alexis_theme() +
+  theme(axis.text.x = element_text(angle = -60, hjust = 0, vjust = 0.9, size = 14)) +
+  # scale_y_continuous(expand = c(0,0), limits = c(0, 700), breaks = c(seq(0, 600, 200))) +
+  scale_x_discrete(limits = x_axis_labels,breaks = x_axis_labels, labels = x_axis_labels) +
+  xlab("N-terminal processing type") +
+  ylab("n unique peptides")
+
+plot_nterm_modtypes_condition
+
+ggsave("output/MainFig3to6_SuppFig9to15/ProteomeLevel/plot_nterm_modtypes_condition.png", plot = plot_nterm_modtypes_condition, width = 12, height = 12, scale = 0.4)
+ggsave("output/MainFig3to6_SuppFig9to15/ProteomeLevel/plot_nterm_modtypes_condition.pdf", plot = plot_nterm_modtypes_condition, width = 12, height = 12, scale = 0.4)
+
+
+## --------------------------------------------------------------------------------------------------------------------------------------------------
+#not normalized
+qc_intensity_distribution(
+  data = df_sum_to_peptide, 
+  sample = sample_id,
+  grouping = stripped_sequence, 
+  intensity_log2 = log2_sumd_peptide_qty,
+  plot_style = "boxplot")
+
+#normalized
+qc_intensity_distribution(
+  data = df_sum_to_peptide, 
+  sample = sample_id,
+  grouping = stripped_sequence, 
+  intensity_log2 = median_norm_log2_intensity_peptide,
+  plot_style = "boxplot")
+
+
+## --------------------------------------------------------------------------------------------------------------------------------------------------
+plot_H2B <- ggplot(data = df_sum_to_peptide %>% filter(reference == "Q99880")) +
+  geom_point(mapping = aes(x = condition, y = median_norm_log2_intensity_peptide)) +
+  geom_boxplot(mapping = aes(x = condition, y = median_norm_log2_intensity_peptide)) +
+  alexis_theme()
+
+plot_H2B
+
+
+## --------------------------------------------------------------------------------------------------------------------------------------------------
+qc_missed_cleavages(
+  data = df_sum_to_peptide,
+  sample= sample_id,
+  grouping = stripped_sequence, 
+  missed_cleavages = missed_cleavages,
+  intensity = raw_norm_intensity_peptide,
+  remove_na_intensities = TRUE,
+  method = "count",
+  plot = TRUE)
+
+
+qc_missed_cleavages(
+  data = df_sum_to_peptide,
+  sample= sample_id,
+  grouping = stripped_sequence, 
+  missed_cleavages = missed_cleavages,
+  intensity = raw_norm_intensity_peptide,
+  remove_na_intensities = TRUE,
+  method = "intensity",
+  plot = TRUE)
+
+
+## --------------------------------------------------------------------------------------------------------------------------------------------------
+peptide_CVs_NOTnormalized <- qc_cvs(
+  data = df_sum_to_peptide, 
+  grouping = stripped_sequence, 
+  condition = condition_alpha, 
+  intensity = sum_precursor_to_peptide,
+  plot = TRUE,
+  plot_style = "boxplot")
+
+peptide_CVs_NOTnormalized
+
+
+peptide_CVs_normalized <- qc_cvs(
+  data = df_sum_to_peptide, 
+  grouping = stripped_sequence, 
+  condition = condition_alpha, 
+  intensity = raw_norm_intensity_peptide,
+  plot = TRUE,
+  plot_style = "boxplot",
+  max_cv = 100)
+
+peptide_CVs_normalized
+
+
+## --------------------------------------------------------------------------------------------------------------------------------------------------
+protein_CVs_NOTnormalized <- qc_cvs(
+  data = df_sum_to_protein, 
+  grouping = reference, 
+  condition = condition_alpha, 
+  intensity = sum_peptide_to_protein,
+  plot = TRUE,
+  plot_style = "boxplot")
+
+protein_CVs_NOTnormalized
+
+
+protein_CVs_normalized <- qc_cvs(
+  data = df_sum_to_protein, 
+  grouping = reference, 
+  condition = condition_alpha, 
+  intensity = raw_norm_intensity_protein,
+  plot = TRUE,
+  max_cv = 100,
+  plot_style = "boxplot")
+
+protein_CVs_normalized
+
+
+## --------------------------------------------------------------------------------------------------------------------------------------------------
+qc_data_completeness(
+  data = df_sum_to_peptide,
+  sample = sample_id, 
+  grouping = stripped_sequence, 
+  intensity = sum_precursor_to_peptide,
+  plot = TRUE
+)
+
+
+qc_data_completeness(
+  data = df_sum_to_peptide,
+  sample = condition_numeric, 
+  grouping = stripped_sequence, 
+  intensity = sum_precursor_to_peptide,
+  plot = TRUE
+)
+
+
+## --------------------------------------------------------------------------------------------------------------------------------------------------
+qc_data_completeness(
+  data = df_sum_to_protein,
+  sample = sample_id, 
+  grouping = reference, 
+  intensity = sum_peptide_to_protein,
+  plot = TRUE
+)
+
+
+qc_data_completeness(
+  data = df_sum_to_protein,
+  sample = condition_numeric, 
+  grouping = reference, 
+  intensity = sum_peptide_to_protein,
+  plot = TRUE
+)
+
+
+## --------------------------------------------------------------------------------------------------------------------------------------------------
+df_overlaps_reps <- df_sum_to_peptide %>% 
+  ungroup() %>% 
+  distinct(condition, replicate, stripped_sequence) %>% 
+  mutate(sample_id = paste(condition, replicate)) %>% 
+  mutate(peptide_present = 1) %>% 
+  pivot_wider(names_from = sample_id, values_fill = 0, values_from = peptide_present, id_cols = stripped_sequence)
+
+df_overlaps_reps_less <- df_overlaps_reps %>% 
+  select(-stripped_sequence) %>% 
+  mutate_all(.funs = as.numeric) %>% 
+  as.matrix() %>% 
+  as.data.frame()
+
+upset_plot_reps <- upset(data = df_overlaps_reps_less, nsets = 30, order.by = "freq", text.scale = 3, nintersects = 30) 
+upset_plot_reps
+
+
+png("output/MainFig3to6_SuppFig9to15/ProteomeLevel/upset_plot_reps.png", width = 1000, height = 600)
+print(upset_plot_reps)
+dev.off()
+
+
+pdf("output/MainFig3to6_SuppFig9to15/ProteomeLevel/upset_plot_reps.pdf", width = 12, height = 8)
+print(upset_plot_reps)
+dev.off()
+
+
+## --------------------------------------------------------------------------------------------------------------------------------------------------
+df_overlaps_condition <- df_sum_to_peptide %>% 
+  ungroup() %>% 
+  distinct(condition,  stripped_sequence) %>% 
+  mutate(peptide_present = 1) %>% 
+  pivot_wider(names_from = condition, values_fill = 0, values_from = peptide_present, id_cols = stripped_sequence)
+
+df_overlaps_condition_less <- df_overlaps_condition %>% 
+  select(-stripped_sequence) %>% 
+  mutate_all(.funs = as.numeric) %>% 
+  as.matrix() %>% 
+  as.data.frame()
+
+upset_plot_condition <- upset(data = df_overlaps_condition_less, nsets = 7, order.by = "freq", text.scale = 3, nintersects = 30) 
+upset_plot_condition
+
+
+png("output/MainFig3to6_SuppFig9to15/ProteomeLevel/upset_plot_condition.png", width = 1000, height = 600)
+print(upset_plot_condition)
+dev.off()
+
+
+pdf("output/MainFig3to6_SuppFig9to15/ProteomeLevel/upset_plot_condition.pdf", width = 12, height = 8)
+print(upset_plot_condition)
+dev.off()
+
+
+## --------------------------------------------------------------------------------------------------------------------------------------------------
+# df_overlaps_condition_gt3reps <- ascore_fasta_protein_mod_loc_sum_psite %>% 
+#   ungroup() %>% 
+#   group_by(condition, ref) %>%
+#   filter(n_distinct(replicate) >= 3) %>% 
+#   ungroup() %>% 
+#   distinct(condition, ref) %>% 
+#   mutate(psite_present = 1) %>% 
+#   pivot_wider(names_from = condition, values_fill = 0, values_from = psite_present, id_cols = ref)
+# 
+# df_overlaps_condition_gt3reps_less <- df_overlaps_condition_gt3reps %>% 
+#   select(-ref) %>%
+#   mutate_all(.funs = as.numeric) %>% 
+#   as.matrix() %>% #trick for formatting fxns within protti.
+#   as.data.frame()
+# 
+# # df_overlaps_more <- cbind(df_overlaps_less, psite_ids) %>%  as.matrix()
+# 
+# upset_plot_psites_gt3reps <- upset(data = df_overlaps_condition_gt3reps_less, nsets = 8, order.by = "freq", text.scale = 3, nintersects = 10)
+# upset_plot_psites_gt3reps
+# 
+# 
+# png("output/MainFig3to6_SuppFig9to15/DDA_YP/EGF_stim/noPOOL/upset_plot_psites_gt3reps.png", width = 2000, height = 600)
+# print(upset_plot_psites_gt3reps)
+# dev.off()
+# 
+# 
+# pdf("output/MainFig3to6_SuppFig9to15/DDA_YP/EGF_stim/noPOOL/upset_plot_psites_gt3reps.pdf", width = 12, height = 8)
+# print(upset_plot_psites_gt3reps)
+# dev.off()
+
+
+
+## --------------------------------------------------------------------------------------------------------------------------------------------------
+peptide_correlation <- df_sum_to_peptide %>%
+
+  group_by(sample_id,  stripped_sequence) %>% 
+  filter(median_norm_log2_intensity_peptide == max(median_norm_log2_intensity_peptide)) %>%
+  ungroup() %>% 
+  distinct(condition, condition_numeric, replicate, sample_id, stripped_sequence, median_norm_log2_intensity_peptide) %>% 
+  # assign_missingness(
+  #   sample = sample_id, 
+  #   condition = condition, 
+  #   grouping = stripped_sequence, 
+  #   intensity = median_norm_log2_intensity_peptide, 
+  #   ref_condition = "all") %>% 
+  
+  qc_sample_correlation(
+  sample = sample_id, 
+  grouping = stripped_sequence, 
+  intensity_log2 = median_norm_log2_intensity_peptide,
+  condition = condition,
+  interactive = FALSE)
+
+
+peptide_correlation
+ggsave(filename = "output/MainFig3to6_SuppFig9to15/ProteomeLevel/peptide_correlation_summedintensity.png", plot = peptide_correlation, 
+       width = 20, height = 18, scale = 0.4)
+
+#only A, B, C, D condition-----------------------------------
+peptide_correlation2 <- qc_sample_correlation(
+  data = df_sum_to_peptide, 
+  sample = sample_id, 
+  grouping = stripped_sequence, 
+  intensity_log2 = median_norm_log2_intensity_peptide,
+  condition = condition_numeric,
+  interactive = FALSE)
+
+
+peptide_correlation2
+ggsave(filename = "output/MainFig3to6_SuppFig9to15/ProteomeLevel/peptide_correlation_summedintensity2.png", plot = peptide_correlation2, 
+       width = 20, height = 18, scale = 0.4)
+
+
+## --------------------------------------------------------------------------------------------------------------------------------------------------
+protein_correlation <- df_sum_to_protein %>% 
+  group_by(sample_id,  reference) %>% 
+  filter(median_norm_log2_intensity_protein == max(median_norm_log2_intensity_protein)) %>%
+  ungroup() %>% 
+  distinct(condition, condition_numeric, replicate, sample_id, reference, median_norm_log2_intensity_protein) %>%
+  
+  
+  qc_sample_correlation(
+  sample = sample_id, 
+  grouping = reference, 
+  intensity_log2 = median_norm_log2_intensity_protein,
+  condition = condition_numeric,
+  interactive = FALSE)
+
+
+protein_correlation
+ggsave(filename = "output/MainFig3to6_SuppFig9to15/ProteomeLevel/protein_correlation_summedintensity.png", plot = protein_correlation, 
+       width = 20, height = 18, scale = 0.4)
+
+#only A, B, C, D condition-----------------------------------
+protein_correlation_AC073 <- qc_sample_correlation(
+  data = df_sum_to_protein, 
+  sample = sample_id, 
+  grouping = reference, 
+  intensity_log2 = median_norm_log2_intensity_protein,
+  condition = condition_numeric,
+  interactive = FALSE)
+
+
+protein_correlation_AC073
+ggsave(filename = "output/MainFig3to6_SuppFig9to15/ProteomeLevel/protein_correlation_summedintensity_ABCD.png", plot = protein_correlation_AC073, 
+       width = 20, height = 18, scale = 0.4)
+
+
+## --------------------------------------------------------------------------------------------------------------------------------------------------
+PCA_scree <- qc_pca(
+  data = df_sum_to_peptide , 
+  sample = sample_id, 
+  grouping = stripped_sequence,
+  intensity = raw_norm_intensity_peptide,
+  condition = condition_numeric, 
+  plot_style = "scree")
+
+PCA_scree
+
+
+## --------------------------------------------------------------------------------------------------------------------------------------------------
+PCA_1v2 <- qc_pca(
+  data = df_sum_to_peptide, 
+  sample = sample_id, 
+  grouping = stripped_sequence,
+  intensity = raw_norm_intensity_peptide,
+  condition = condition_numeric, 
+  plot_style = "pca",
+  components = c("PC1", "PC2"))
+
+PCA_1v2
+
+
+## --------------------------------------------------------------------------------------------------------------------------------------------------
+PCA_1v3 <- qc_pca(
+  data = df_sum_to_peptide, 
+  sample = sample_id, 
+  grouping = stripped_sequence,
+  intensity = raw_norm_intensity_peptide,
+  condition = condition_numeric, 
+  plot_style = "pca",
+  components = c("PC1", "PC3"))
+
+PCA_1v3
+
+
+## --------------------------------------------------------------------------------------------------------------------------------------------------
+PCA_scree_protein <- qc_pca(
+  data = df_sum_to_protein, 
+  sample = sample_id, 
+  grouping = reference,
+  intensity = raw_norm_intensity_protein,
+  condition = condition_numeric, 
+  plot_style = "scree")
+
+PCA_scree_protein
+
+
+## --------------------------------------------------------------------------------------------------------------------------------------------------
+PCA_1v2_protein <- qc_pca(
+  data = df_sum_to_protein, 
+  sample = sample_id, 
+  grouping = reference,
+  intensity = raw_norm_intensity_protein,
+  condition = condition_numeric, 
+  plot_style = "pca",
+  components = c("PC1", "PC2"))
+
+PCA_1v2_protein
+
+
+## --------------------------------------------------------------------------------------------------------------------------------------------------
+PCA_1v3_protein <- qc_pca(
+  data = df_sum_to_protein, 
+  sample = sample_id, 
+  grouping = reference,
+  intensity = raw_norm_intensity_protein,
+  condition = condition_numeric, 
+  plot_style = "pca",
+  components = c("PC1", "PC3"))
+
+PCA_1v3_protein
+
+
+## --------------------------------------------------------------------------------------------------------------------------------------------------
+df_sum_to_peptide_misssing <- assign_missingness(
+  data = df_sum_to_peptide, 
+  sample = sample_id, 
+  condition =  condition_numeric, 
+  grouping = stripped_sequence, 
+  intensity = median_norm_log2_intensity_peptide,
+  ref_condition = "all",
+  retain_columns = c(condition, condition, reference, raw_norm_intensity_peptide))
+
+
+## --------------------------------------------------------------------------------------------------------------------------------------------------
+df_sum_to_protein_misssing <- assign_missingness(
+  data = df_sum_to_protein, 
+  sample = sample_id, 
+  condition =  condition_numeric, 
+  grouping = reference, 
+  intensity = median_norm_log2_intensity_protein,
+  ref_condition = "all",
+  retain_columns = c(condition, condition, reference, raw_norm_intensity_protein))
+
+
+## --------------------------------------------------------------------------------------------------------------------------------------------------
+peptide_diff_abundance <- df_sum_to_peptide_misssing %>% 
+  calculate_diff_abundance(
+    sample = sample_id, 
+    condition = condition_numeric, 
+    grouping = stripped_sequence, 
+    intensity_log2 = median_norm_log2_intensity_peptide, 
+    missingness = missingness, 
+    comparison = comparison, 
+    filter_NA_missingness = TRUE, 
+    method = "moderated_t-test" ,
+    retain_columns = c(condition, condition, reference, raw_norm_intensity_peptide))
+
+
+
+
+## --------------------------------------------------------------------------------------------------------------------------------------------------
+protein_diff_abundance <- df_sum_to_protein_misssing %>% 
+  calculate_diff_abundance(
+    sample = sample_id, 
+    condition = condition_numeric, 
+    grouping = reference, 
+    intensity_log2 = median_norm_log2_intensity_protein, 
+    missingness = missingness, 
+    comparison = comparison, 
+    filter_NA_missingness = TRUE, 
+    method = "moderated_t-test" ,
+    retain_columns = c(reference))
+
+
+
+
+## --------------------------------------------------------------------------------------------------------------------------------------------------
+protein_diff_abundance_sigCHGrs <- protein_diff_abundance %>% 
+  filter(abs(diff) > 1) %>% 
+  filter(adj_pval < 0.05) %>% 
+  left_join(y = human_fasta_2024 %>% select(reference, gene), by = "reference" ) %>% 
+  filter(grepl("0", comparison) == TRUE) %>% 
+  group_by(comparison) %>% 
+  mutate(n_distinct_proteins_changing = n_distinct(reference)) %>% 
+  ungroup()
+
+#net unique changing protein abundances.
+distinct_proteins_changing <- protein_diff_abundance_sigCHGrs %>% distinct(gene)
+
+
+## --------------------------------------------------------------------------------------------------------------------------------------------------
+peptide_diff_abundance_volcano <- volcano_plot(
+  data = peptide_diff_abundance %>% filter(grepl("0_vs_",comparison) == TRUE), 
+  grouping = stripped_sequence, 
+  log2FC = diff, 
+  significance = pval, 
+  method = "significant",
+  facet_by = comparison,
+  significance_cutoff = c(0.05, "adj_pval"))
+
+peptide_diff_abundance_volcano
+
+
+
+## --------------------------------------------------------------------------------------------------------------------------------------------------
+protein_diff_abundance_volcano <- volcano_plot(
+  data = protein_diff_abundance%>% filter(grepl("0_vs_",comparison) == TRUE), 
+  grouping = reference, 
+  log2FC = diff, 
+  significance = pval, 
+  method = "significant",
+  facet_by = comparison,
+  significance_cutoff = c(0.05, "adj_pval"))
+
+protein_diff_abundance_volcano
+
+
+
+## --------------------------------------------------------------------------------------------------------------------------------------------------
+write_csv(x = protein_diff_abundance, file = "modified_data/MainFig3to6_SuppFig9to15/ProteomeLevel/protein_diff_abundance.csv")
+

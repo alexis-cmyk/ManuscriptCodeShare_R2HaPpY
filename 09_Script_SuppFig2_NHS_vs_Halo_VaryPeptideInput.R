@@ -1,0 +1,1913 @@
+## --------------------------------------------------------------------------------------------------------------------------------------------------
+library(tidyverse)
+library(janitor)
+library(readr)
+library(gridExtra)
+library(ggrepel)
+library(cowplot)
+library(reshape2)
+library(eulerr)
+library(protti)
+library(iq)
+library(RColorBrewer)
+#for PCA loadings
+library(FactoMineR)
+
+#for protti sample correlation and volcano plots
+library(dendextend)
+library(pheatmap)
+library(seriation)
+library(UpSetR)
+
+#for GO enrichments
+library(gprofiler2)
+
+library(e1071)
+
+#for motif logos
+library(ggseqlogo)
+
+
+## --------------------------------------------------------------------------------------------------------------------------------------------------
+alexis_theme <- function() {
+  theme(
+    # panel.border = element_rect(colour = "blue", fill = NA, linetype = 2),
+    panel.border = element_blank(),
+    panel.background = element_blank(),
+    panel.grid.major.x  = element_blank(),
+    panel.grid.minor = element_blank(),
+    # axis.text.x = element_text(angle = 90, vjust = 0.25, hjust = 1),
+    axis.text.x = element_text(angle = 0, vjust = 0.0, hjust = 0.5),
+    axis.line = element_line(colour = "black"),
+    axis.text = element_text(colour = "black", face = "plain", family = "sans", size = 14),
+    axis.title = element_text(colour = "black", family = "sans", size = 14),
+    axis.ticks = element_line(colour = "black"),
+    title = element_text(size = 8, hjust = 0.5),
+    strip.text = element_text(size= 12, family = "sans"),
+    # legend at the bottom 6)
+    legend.position = "right")   
+}
+
+alexis_theme2 <- function() {
+  theme(
+    # panel.border = element_rect(colour = "blue", fill = NA, linetype = 2),
+    panel.border = element_blank(),
+    panel.background = element_blank(),
+    panel.grid.major.y  = element_line(color = "grey80", linewidth = 0.75),
+    panel.grid.major.x  = element_blank(),
+    panel.grid.minor = element_blank(),
+    # axis.text.x = element_text(angle = 90, vjust = 0.25, hjust = 1),
+    axis.text.x = element_text(angle = -60, vjust = 0.75, hjust = 0),
+    axis.line = element_line(colour = "black"),
+    axis.text = element_text(colour = "black", face = "plain", family = "sans", size = 14),
+    axis.title = element_text(colour = "black", family = "sans", size = 14),
+    axis.ticks = element_line(colour = "black"),
+    title = element_text(size = 8, hjust = 0.5),
+    strip.text = element_text(size= 12, family = "sans"),
+    # legend at the bottom 6)
+    legend.position = "right")   
+}
+
+
+
+## --------------------------------------------------------------------------------------------------------------------------------------------------
+my_qc_cvs <- function (data,
+                       grouping,
+                       condition,
+                       intensity,
+                       plot = TRUE,
+                       plot_style = "density",
+                       max_cv = 200,
+                       xlab = "condition",
+                       showlegend = FALSE,
+                       yintercept = 25){
+  
+  
+  protti_colours <- "placeholder"
+  utils::data("protti_colours", envir = environment())
+  
+  
+#-----------------------------------------------------------------------------------  
+  if (plot == FALSE) {
+    
+    
+    if (max(dplyr::pull(data, {{intensity}}), na.rm = TRUE) < 1000) {
+      stop(strwrap("Please backtransform your data or use raw values.\nThe function does not handle log2 transformed data.", 
+                   prefix = "\n", initial = ""))  }
+    
+    
+    result <- data %>% dplyr::distinct({{grouping}}, {{condition}}, {{intensity}}) %>%
+      tidyr::drop_na({{intensity}}) %>%
+      dplyr::group_by({{grouping}}) %>%
+      dplyr::mutate(cv_combined = (stats::sd({{intensity}})/mean({{intensity}})) * 100) %>%
+      dplyr::group_by({{condition}}, {{grouping}}) %>%
+      dplyr::mutate(cv = (stats::sd({{intensity}})/mean({{intensity}})) * 100) %>%
+      dplyr::distinct({{condition}}, {{grouping}}, .data$cv_combined, .data$cv) %>%
+      tidyr::drop_na() %>%
+      dplyr::group_by({{condition}}) %>%
+      dplyr::mutate(median_cv = stats::median(.data$cv)) %>% 
+      dplyr::ungroup() %>%
+      dplyr::mutate(median_cv_combined = stats::median(.data$cv_combined)) %>% 
+      dplyr::select(-{{grouping}}, -c("cv_combined", "cv")) %>%
+      dplyr::distinct() 
+    return(result)  }  
+  
+  ##-----------------------------------------------------------------------------------   
+  if (plot == TRUE) {
+    if (max(dplyr::pull(data, {{intensity}}), na.rm = TRUE) < 1000) {
+      stop(strwrap("Please backtransform your data or use raw values.\nThe function does not handle log2 transformed data.", 
+                   prefix = "\n", initial = ""))}
+    
+    result <- data %>%
+      dplyr::distinct({{grouping}}, {{condition}}, {{intensity}}) %>%
+      tidyr::drop_na({{intensity}}) %>%
+      
+      dplyr::group_by({{grouping}}) %>%
+      dplyr::mutate(
+        cv_combined = (stats::sd({{intensity}})/mean({{intensity}})) * 100) %>%
+      
+      
+      dplyr::group_by({{condition}}, {{grouping}}) %>%
+      dplyr::mutate(cv = (stats::sd({{intensity}})/mean({{intensity}})) * 100) %>%
+      dplyr::ungroup() %>%
+      
+      dplyr::distinct({{condition}}, {{grouping}}, .data$cv_combined, .data$cv) %>%
+      tidyr::drop_na() %>%
+      tidyr::pivot_longer(cols = starts_with("cv"), names_to = "type", values_to = "values") %>%
+      dplyr::mutate(type = ifelse(.data$type =="cv", {{condition}}, "all")) %>%
+      dplyr::mutate(type = forcats::fct_relevel(as.factor(.data$type),"all")) %>%
+      dplyr::select(-{{condition}}) %>%
+      dplyr::group_by(.data$type) %>%
+      dplyr::mutate(median = stats::median(.data$values)) %>% 
+      dplyr::distinct()
+    
+    if (max(result$values) > max_cv) {
+      cv_too_high <- result %>%
+        dplyr::filter(.data$values >max_cv) %>%
+        nrow()
+      
+      warning(paste(cv_too_high), " values were exluded from the plot (CV > ",max_cv, " %)")  }
+    
+    
+    
+    ##-----------------------------------------------------------------------------------      
+    if (plot_style == "boxplot") {
+      plot <- ggplot2::ggplot(result) +
+        ggplot2::geom_boxplot(aes(x = .data$type, y = .data$values, fill = .data$type), na.rm = TRUE, size = 1, show.legend = showlegend, outliers = FALSE,
+                              alpha   = 0.5, outlier.alpha = 0.5, outlier.shape = 21) + 
+        ggplot2::labs(
+          # title = "Coefficients of variation",
+          y = "Coefficient of variation [%]", fill = "Condition") + 
+        ggplot2::geom_hline(yintercept = {{yintercept}}, linetype = 1, size = 0.75, alpha = 0.3) +
+        ggplot2::scale_y_continuous(limits = c(0, max_cv)) + 
+        # scale_fill_brewer(palette = "Dark2") +
+        scale_color_manual(values = c("black","black","black","black","black","black","black","black","black")) +
+        scale_fill_manual(values = c(rep("white", 1), rep("grey90", 1), rep("grey70", 1),rep("grey50",1),rep("grey30", 1),rep("wheat1", 1), rep("tan", 1),rep("tan3",1),rep("chocolate4", 1))) +
+  # scale_fill_manual(values = c(rep("grey100", 1), rep("grey90", 1), rep("grey70", 1),rep("grey50",1),rep("grey30", 1), rep("grey90", 1), rep("grey70", 1),rep("grey50",1),rep("grey30", 1))) +
+        # ggplot2::scale_fill_manual(values = c("grey",protti_colours)) +
+        
+        alexis_theme2() +
+        ggplot2::theme(
+          panel.grid.major.y  = element_blank()) +
+        xlab({{xlab}})
+        # ggplot2::theme(plot.title = ggplot2::element_text(size = 20),
+        #                axis.title.x = ggplot2::element_text(size = 15), 
+        #                axis.text.y = ggplot2::element_text(size = 15),
+        #                axis.text.x = ggplot2::element_text(size = 12,angle = 75, hjust = 1),
+        #                axis.title.y = ggplot2::element_text(size = 15), 
+        #                legend.title = ggplot2::element_text(size = 15),
+        #                legend.text = ggplot2::element_text(size = 15))
+      return(plot)
+    }
+    
+    ##-----------------------------------------------------------------------------------    
+    if (plot_style == "density") {
+      plot <- ggplot2::ggplot(result) +
+        ggplot2::geom_density(ggplot2::aes(x = .data$values, col = .data$type), size = 1, na.rm = TRUE, show.legend = showlegend) + 
+        ggplot2::labs(
+          # title = "Coefficients of variation",
+          x = "Coefficient of variation [%]", y = "Density", color = "Condition") +
+        ggplot2::scale_x_continuous(limits = c(0,max_cv)) +
+        geom_vline(data = dplyr::distinct(result,  .data$median, .data$type),
+                   ggplot2::aes(xintercept = median, col = .data$type),
+                   size = 1,
+                   linetype = "dashed", 
+                   show.legend = FALSE) +
+        scale_fill_brewer(palette = "Dark2") +
+        # ggplot2::scale_color_manual(values = c("grey",protti_colours)) +
+        alexis_theme() +
+        xlab(xlab)
+        # ggplot2::theme(plot.title = ggplot2::element_text(size = 20), 
+        #                axis.title.x = ggplot2::element_text(size = 15),
+        #                axis.text.y = ggplot2::element_text(size = 15),
+        #                axis.text.x = ggplot2::element_text(size = 12, angle = 75, hjust = 1),
+        #                axis.title.y = ggplot2::element_text(size = 15),
+        #                legend.title = ggplot2::element_text(size = 15),
+        #                legend.text = ggplot2::element_text(size = 15))
+      
+      return(plot)
+      
+    }
+    
+    ##-----------------------------------------------------------------------------------
+    if (plot_style == "violin") {
+      
+      plot <- ggplot2::ggplot(result, aes(x = .data$type, 
+                                          y = .data$values, color = .data$type)) +
+        ggplot2::geom_violin(na.rm = TRUE, size = 1) + 
+        ggplot2::geom_boxplot(width = 0.15, fill = "white", na.rm = TRUE, alpha = 0.6, size = 0.75, outlier.color = NA) +
+        ggplot2::labs(
+          # title = "Coefficients of variation",
+                      x = "", y = "Coefficient of variation [%]",
+                      fill = "Condition") +
+        ggplot2::geom_hline(yintercept = {{yintercept}}, linetype = 1, size = 0.75, alpha = 0.3) +
+        ggplot2::scale_y_continuous(limits = c(0, max_cv)) +
+        # ggplot2::scale_fill_manual(values = c("grey",  protti_colours)) +
+        # scale_fill_brewer(palette = "Dark2") +
+        scale_color_manual(values = c("black","black","black","black")) +
+  scale_fill_manual(values = c(rep("grey90", 1), rep("grey70", 1),rep("grey50",1),rep("grey30", 1))) +
+        alexis_theme() +
+        xlab(xlab)
+        # ggplot2::theme_bw() +
+        # ggplot2::theme(plot.title = ggplot2::element_text(size = 20),
+        #                axis.title.x = ggplot2::element_text(size = 15),
+        #                axis.text.y = ggplot2::element_text(size = 15), 
+        #                axis.text.x = ggplot2::element_text(size = 12, angle = 75, hjust = 1), axis.title.y = ggplot2::element_text(size = 15),
+        #                legend.title = ggplot2::element_text(size = 15), 
+        #                legend.text = ggplot2::element_text(size = 15))
+      
+      return(plot)
+      
+    }
+  }
+}
+
+
+
+## --------------------------------------------------------------------------------------------------------------------------------------------------
+# my_qc_cvs <- function (data,
+#                        grouping,
+#                        condition,
+#                        intensity,
+#                        plot = TRUE,
+#                        plot_style = "density",
+#                        max_cv = 200,
+#                        xlab = "condition",
+#                        showlegend = FALSE,
+#                        yintercept = 25){
+#   
+#   
+#   protti_colours <- "placeholder"
+#   utils::data("protti_colours", envir = environment())
+#   
+#   
+#   #-----------------------------------------------------------------------------------  
+#   if (plot == FALSE) {
+#     
+#     
+#     if (max(dplyr::pull(data, {{intensity}}), na.rm = TRUE) < 1000) {
+#       stop(strwrap("Please backtransform your data or use raw values.\nThe function does not handle log2 transformed data.", 
+#                    prefix = "\n", initial = ""))  }
+#     
+#     
+#     result <- data %>% dplyr::distinct({{grouping}}, {{condition}}, {{intensity}}) %>%
+#       tidyr::drop_na({{intensity}}) %>%
+#       dplyr::group_by({{grouping}}) %>%
+#       dplyr::mutate(cv_combined = (stats::sd({{intensity}})/mean({{intensity}})) * 100) %>%
+#       dplyr::group_by({{condition}}, {{grouping}}) %>%
+#       dplyr::mutate(cv = (stats::sd({{intensity}})/mean({{intensity}})) * 100) %>%
+#       dplyr::distinct({{condition}}, {{grouping}}, .data$cv_combined, .data$cv) %>%
+#       tidyr::drop_na() %>%
+#       dplyr::group_by({{condition}}) %>%
+#       dplyr::mutate(median_cv = stats::median(.data$cv)) %>% 
+#       dplyr::ungroup() %>%
+#       dplyr::mutate(median_cv_combined = stats::median(.data$cv_combined)) %>% 
+#       dplyr::select(-{{grouping}}, -c("cv_combined", "cv")) %>%
+#       dplyr::distinct() 
+#     return(result)  }  
+#   
+#   ##-----------------------------------------------------------------------------------   
+#   if (plot == TRUE) {
+#     if (max(dplyr::pull(data, {{intensity}}), na.rm = TRUE) < 1000) {
+#       stop(strwrap("Please backtransform your data or use raw values.\nThe function does not handle log2 transformed data.", 
+#                    prefix = "\n", initial = ""))}
+#     
+#     result <- data %>%
+#       dplyr::distinct({{grouping}}, {{condition}}, {{intensity}}) %>%
+#       tidyr::drop_na({{intensity}}) %>%
+#       
+#       dplyr::group_by({{grouping}}) %>%
+#       dplyr::mutate(
+#         cv_combined = (stats::sd({{intensity}})/mean({{intensity}})) * 100) %>%
+#       
+#       
+#       dplyr::group_by({{condition}}, {{grouping}}) %>%
+#       dplyr::mutate(cv = (stats::sd({{intensity}})/mean({{intensity}})) * 100) %>%
+#       dplyr::ungroup() %>%
+#       
+#       dplyr::distinct({{condition}}, {{grouping}}, .data$cv_combined, .data$cv) %>%
+#       tidyr::drop_na() %>%
+#       tidyr::pivot_longer(cols = starts_with("cv"), names_to = "type", values_to = "values") %>%
+#       dplyr::mutate(type = ifelse(.data$type =="cv", {{condition}}, "all")) %>%
+#       dplyr::mutate(type = forcats::fct_relevel(as.factor(.data$type),"all")) %>%
+#       dplyr::select(-{{condition}}) %>%
+#       dplyr::group_by(.data$type) %>%
+#       dplyr::mutate(median = stats::median(.data$values)) %>% 
+#       dplyr::distinct()
+#     
+#     if (max(result$values) > max_cv) {
+#       cv_too_high <- result %>%
+#         dplyr::filter(.data$values >max_cv) %>%
+#         nrow()
+#       
+#       warning(paste(cv_too_high), " values were exluded from the plot (CV > ",max_cv, " %)")  }
+#     
+#     
+#     
+#     ##-----------------------------------------------------------------------------------      
+#     if (plot_style == "boxplot") {
+#       plot <- ggplot2::ggplot(result) +
+#         ggplot2::geom_boxplot(aes(x = .data$type, y = .data$values, fill = .data$type), na.rm = TRUE, size = 1, show.legend = showlegend,
+#                               alpha   = 0.5, outlier.alpha = 0.5, outlier.shape = 21) + 
+#         ggplot2::labs(
+#           # title = "Coefficients of variation",
+#           y = "Coefficient of variation [%]", fill = "Condition") + 
+#         ggplot2::geom_hline(yintercept = {{yintercept}}, linetype = 1, size = 0.75, alpha = 0.3) +
+#         ggplot2::scale_y_continuous(limits = c(0, max_cv)) + 
+#         scale_fill_brewer(palette = "Dark2") +
+#         # ggplot2::scale_fill_manual(values = c("grey",protti_colours)) +
+#         alexis_theme() +
+#         xlab({{xlab}})
+#       # ggplot2::theme(plot.title = ggplot2::element_text(size = 20),
+#       #                axis.title.x = ggplot2::element_text(size = 15), 
+#       #                axis.text.y = ggplot2::element_text(size = 15),
+#       #                axis.text.x = ggplot2::element_text(size = 12,angle = 75, hjust = 1),
+#       #                axis.title.y = ggplot2::element_text(size = 15), 
+#       #                legend.title = ggplot2::element_text(size = 15),
+#       #                legend.text = ggplot2::element_text(size = 15))
+#       return(plot)
+#     }
+#     
+#     ##-----------------------------------------------------------------------------------    
+#     if (plot_style == "density") {
+#       plot <- ggplot2::ggplot(result) +
+#         ggplot2::geom_density(ggplot2::aes(x = .data$values, col = .data$type), size = 1, na.rm = TRUE, show.legend = showlegend) + 
+#         ggplot2::labs(
+#           # title = "Coefficients of variation",
+#           x = "Coefficient of variation [%]", y = "Density", color = "Condition") +
+#         ggplot2::scale_x_continuous(limits = c(0,max_cv)) +
+#         geom_vline(data = dplyr::distinct(result,  .data$median, .data$type),
+#                    ggplot2::aes(xintercept = median, col = .data$type),
+#                    size = 1,
+#                    linetype = "dashed", 
+#                    show.legend = FALSE) +
+#         scale_fill_brewer(palette = "Dark2") +
+#         # ggplot2::scale_color_manual(values = c("grey",protti_colours)) +
+#         alexis_theme() +
+#         xlab(xlab)
+#       # ggplot2::theme(plot.title = ggplot2::element_text(size = 20), 
+#       #                axis.title.x = ggplot2::element_text(size = 15),
+#       #                axis.text.y = ggplot2::element_text(size = 15),
+#       #                axis.text.x = ggplot2::element_text(size = 12, angle = 75, hjust = 1),
+#       #                axis.title.y = ggplot2::element_text(size = 15),
+#       #                legend.title = ggplot2::element_text(size = 15),
+#       #                legend.text = ggplot2::element_text(size = 15))
+#       
+#       return(plot)
+#       
+#     }
+#     
+#     ##-----------------------------------------------------------------------------------
+#     if (plot_style == "violin") {
+#       
+#       plot <- ggplot2::ggplot(result, aes(x = .data$type, 
+#                                           y = .data$values, fill = .data$type)) +
+#         ggplot2::geom_violin(na.rm = TRUE, size = 1) + 
+#         ggplot2::geom_boxplot(width = 0.15, fill = "white", na.rm = TRUE, alpha = 0.6, size = 0.75, outlier.color = NA) +
+#         ggplot2::labs(
+#           # title = "Coefficients of variation",
+#           x = "", y = "Coefficient of variation [%]",
+#           fill = "Condition") +
+#         ggplot2::geom_hline(yintercept = {{yintercept}}, linetype = 1, size = 0.75, alpha = 0.3) +
+#         ggplot2::scale_y_continuous(limits = c(0, max_cv)) +
+#         # ggplot2::scale_fill_manual(values = c("grey",  protti_colours)) +
+#         scale_fill_brewer(palette = "Dark2") +
+#         alexis_theme() +
+#         xlab(xlab)
+#       # ggplot2::theme_bw() +
+#       # ggplot2::theme(plot.title = ggplot2::element_text(size = 20),
+#       #                axis.title.x = ggplot2::element_text(size = 15),
+#       #                axis.text.y = ggplot2::element_text(size = 15), 
+#       #                axis.text.x = ggplot2::element_text(size = 12, angle = 75, hjust = 1), axis.title.y = ggplot2::element_text(size = 15),
+#       #                legend.title = ggplot2::element_text(size = 15), 
+#       #                legend.text = ggplot2::element_text(size = 15))
+#       
+#       return(plot)
+#       
+#     }
+#   }
+# }
+
+
+## --------------------------------------------------------------------------------------------------------------------------------------------------
+my_hier_cluster <- function (data,
+                             sample,
+                             grouping,
+                             intensity_log2,
+                             condition_order_for_colors = c("NHS_0.125mg", "NHS_0.25mg", "NHS_0.5mg", "NHS_1mg",
+                                                            "Halo_0.125mg", "Halo_0.25mg", "Halo_0.5mg", "Halo_1mg"),
+                             breaklist = seq(0.5, 1, by = 0.1),
+                             condition,
+                             digestion = NULL, 
+                             run_order = NULL, 
+                             method = "spearman", 
+                             display_nums = TRUE,
+                             fontsize_number = 14,
+                             number_color = "white",
+                             cell_height = 20, 
+                             interactive = FALSE) 
+{
+  
+  protti_colours <- "placeholder"
+  
+  utils::data("protti_colours", envir = environment())
+  
+  viridis_colours <- "placeholder"
+  
+  utils::data("viridis_colours", envir = environment())
+  
+  
+  
+  
+  correlation <- data %>%
+    dplyr::distinct({{sample}}, {{grouping}}, {{intensity_log2}}) %>%
+    tidyr::pivot_wider(names_from = { {sample}},
+                       values_from = {{intensity_log2}}) %>%
+    tibble::column_to_rownames(var = rlang::as_name(enquo(grouping))) %>% 
+    stats::cor(method = {{method}}, use = "complete.obs")
+  
+  
+  
+  
+  annotation <- data %>%
+    dplyr::mutate(`:=`({{condition}}, as.character({{condition}}))) %>%
+    dplyr::distinct({{sample}}, {{condition}}, {{digestion}}, {{run_order}}) %>%
+    tibble::column_to_rownames(var = rlang::as_name(enquo(sample)))
+  
+  n_conditions <- 0
+  n_digest <- 0
+  n_run_ord <- 0
+  conditions_colour <- c()
+  digest_colours <- c()
+  run_ord_colours <- c()
+  
+  
+  
+  #changed this section to allow custom ordering of conditions for coloring. added new variable condition_order_for_colors.
+  if (!missing(condition)) {
+    # conditions <- unique(dplyr::pull(annotation, {{condition}}))
+    # n_conditions <- length(conditions)
+    conditions <- {{condition_order_for_colors}}
+    n_conditions <- length(conditions)
+    conditions_colours <- protti_colours[1:n_conditions]
+    names(conditions_colours) <- conditions
+  }
+  
+  
+  
+  
+  
+  
+  if (!missing(digestion)) {
+    digest <- unique(dplyr::pull(annotation, {{digestion}}))
+    n_digest <- length(digest)
+    digest_colours <- protti_colours[(n_conditions + 1):(n_digest + 
+                                                           n_conditions)]
+    names(digest_colours) <- digest
+  }
+  
+  
+  
+  
+  
+  if (!missing(run_order)) {
+    colfunc <- grDevices::colorRampPalette(c("#0D0887", 
+                                             "#2E0595", "#46039F", "#5C01A6", "#7201A8", "#8707A6", 
+                                             "#9A169F", "#AC2694", "#BC3587", "#CA457A", "#D6556D", 
+                                             "#E26561", "#EB7655", "#F48849", "#FA9B3D", "#FDAF31", 
+                                             "#FDC527", "#F9DC24", "#F0F921"))
+    run_ord <- unique(dplyr::pull(annotation, {
+      {
+        run_order
+      }
+    }))
+    n_run_ord <- length(run_ord)
+    run_ord_colours <- colfunc(n_run_ord)
+    names(run_ord_colours) <- run_ord
+  }
+  
+  
+  
+  
+  annotation_colours <- list(conditions_colours, digest_colours, run_ord_colours)
+  
+  
+  names(annotation_colours) <- c(if (!missing(condition)) {
+    rlang::as_name(enquo(condition))
+  } else {
+    "condition"
+  }, if (!missing(digestion)) {
+    rlang::as_name(enquo(digestion))
+  } else {
+    "digestion"
+  }, if (!missing(run_order)) {
+    rlang::as_name(enquo(run_order))
+  } else {
+    "run_order"
+  })
+  
+  
+  
+  
+  
+  #interactive -----------------------------------------------------------------------------------
+  
+  if (interactive == TRUE) {
+    if (!requireNamespace("heatmaply", quietly = TRUE)) {
+      message("Package \"heatmaply\" is needed for this function to work. Please install it.", 
+              call. = FALSE)
+      return(invisible(NULL))
+    }
+    heatmap_interactive <- heatmaply::heatmaply(correlation, 
+                                                main = "Correlation based hirachical clustering of samples", 
+                                                col_side_colors = annotation, col_side_palette = c(annotation_colours[[1]], 
+                                                                                                   annotation_colours[[2]], annotation_colours[[3]]),
+                                                display_numbers(round(correlation, 2)),
+                                                k_col = NA, k_row = NA, plot_method = "plotly")
+    return(heatmap_interactive)
+  }
+  
+  
+  
+  
+  
+  #not interactive ----------------------------------------------------------------------------------
+  
+  if (interactive == FALSE) {
+    dependency_test <- c(dendextend = !requireNamespace("dendextend", 
+                                                        quietly = TRUE),
+                         pheatmap = !requireNamespace("pheatmap", 
+                                                      quietly = TRUE), seriation = !requireNamespace("seriation", quietly = TRUE))
+    if (any(dependency_test)) {
+      
+      dependency_name <- names(dependency_test[dependency_test ==  TRUE])
+      
+      if (length(dependency_name) == 1) {
+        message("Package \"", paste(dependency_name), "\" is needed for this function to work. Please install it.", call. = FALSE)
+        return(invisible(NULL))
+      }
+      
+      else {
+        message("Packages \"", paste(dependency_name, collapse = "\" and \""), "\" are needed for this function to work. Please install them.", call. = FALSE)
+        return(invisible(NULL))
+      }
+    }
+    
+    
+    distance <- stats::dist(correlation)
+    
+    hierachical_clustering <- stats::hclust(distance)
+    
+    dendrogram <- stats::as.dendrogram(hierachical_clustering)
+    
+    dendrogram_row <- dendextend::seriate_dendrogram(dendrogram, 
+                                                     distance, method = "OLO")
+    
+    dendrogram_column <- dendextend::rotate(dendrogram_row, 
+                                            order = rev(labels(distance)[seriation::get_order(stats::as.hclust(dendrogram_row))]))
+    
+    #actual heatmap with cell labels, not interactive -------------------------------------------------------
+    heatmap_static <- pheatmap::pheatmap(correlation,
+                                         cluster_rows = stats::as.hclust(dendrogram_row), 
+                                         cluster_cols = stats::as.hclust(dendrogram_column), 
+                                         display_numbers = {{display_nums}},
+                                         # display_numbers = round(correlation,2),  #annotations within column, can change to asterisks, see above
+                                          #can change df = correlation to a variable to allow either matrix or filtered matrix input, such as for asterixes, etc.
+                                         number_color = {{number_color}}, #in-cell annotations
+                                         fontsize_number = {{fontsize_number}}, #fontsize of in-cell annotations
+                                         annotation = annotation,
+                                         annotation_colors = annotation_colours, 
+                                         main = paste({{method}}, "correlations", sep = " "),
+                                         #modified color and added breaks variables to control heatmap coloring and intervals.
+                                         color = colorRampPalette(rev(brewer.pal(n = 7, name = "RdYlBu")))(length({{breaklist}})),
+                                          breaks = {{breaklist}}, silent = TRUE)
+                                         # color = viridis_colours, silent = TRUE)
+    return(heatmap_static)
+  }
+}
+
+
+
+## --------------------------------------------------------------------------------------------------------------------------------------------------
+human_fasta_2024 <- read_csv("raw_data/SuppFig2/sp_reviewed_UP000005640_2024_03_21_forR.csv")
+
+
+
+## --------------------------------------------------------------------------------------------------------------------------------------------------
+
+comet <- read_csv("raw_data/SuppFig2/comet/result.csv") %>% #ascore and comet files were switched & didn't bother to rename file.
+  clean_names() %>% 
+  separate(col = sample_name, into = c("experiment",  "R2P2_well", "inj_vol"), sep = "_", remove = FALSE) %>% 
+   
+  left_join(y = human_fasta_2024, by = "reference") %>% 
+  rename(intensity = max_intensity_light_c2837) %>% 
+  filter(reverse == FALSE) %>% 
+  mutate(phospho = case_when(
+    grepl("\\@", sequence) ~ "phospho",
+    TRUE ~ "none")) %>% 
+  mutate(
+    sample_id = case_when(
+      raw_file_name == "x07825"~"NHS_1mg_6",
+      raw_file_name == "x07824"~"NHS_1mg_5",
+      raw_file_name == "x07823"~"NHS_1mg_4",
+      raw_file_name == "x07821"~"NHS_1mg_3",
+      raw_file_name == "x07820"~"NHS_1mg_2",
+      raw_file_name == "x07819"~"NHS_1mg_1",
+      raw_file_name == "x07817"~"Halo_1mg_6",
+      raw_file_name == "x07816"~"Halo_1mg_5",
+      raw_file_name == "x07815"~"Halo_1mg_4",
+      raw_file_name == "x07813"~"Halo_1mg_3",
+      raw_file_name == "x07812"~"Halo_1mg_2",
+      raw_file_name == "x07811"~"Halo_1mg_1",
+      raw_file_name == "x07804"~"pool_AGC300_0",
+      raw_file_name == "x07805"~"pool_AGC200_0",
+      raw_file_name == "x07806"~"pool_AGC300_0",
+      raw_file_name == "x07807"~"pool_AGC300_0",
+      raw_file_name == "x07785"~"NHS_pool_0.125mg_1to6",
+      raw_file_name == "x07784"~"Halo_pool_0.125mg_1to6",
+      raw_file_name == "x07783"~"NHS_pool_0.25mg_1to6",
+      raw_file_name == "x07782"~"Halo_pool_0.25mg_1to6",
+      raw_file_name == "x07780"~"NHS_pool_0.5mg_1to6",
+      raw_file_name == "x07779"~"Halo_pool_0.5mg_1to6",
+      raw_file_name == "x07778"~"NHS_pool_1mg_1to6",
+      raw_file_name == "x07777"~"Halo_pool_1mg_1to6",
+      raw_file_name == "x07773"~"NHS_pool_0.125mg_1to6",
+      raw_file_name == "x07770"~"Halo_pool_0.25mg_1to6",
+      raw_file_name == "x07772"~"Halo_pool_0.125mg_1to6",
+      raw_file_name == "x07765"~"Halo_pool_1mg_1to6",
+      raw_file_name == "x07766"~"NHS_pool_1mg_1to6",
+      raw_file_name == "x07767"~"Halo_pool_0.5mg_1to6",
+      raw_file_name == "x07846"~"NHS_0.5mg_6",
+      raw_file_name == "x07842"~"NHS_0.5mg_5",
+      raw_file_name == "x07841"~"NHS_0.5mg_4",
+      raw_file_name == "x07839"~"NHS_0.5mg_3",
+      raw_file_name == "x07838"~"NHS_0.5mg_2",
+      raw_file_name == "x07837"~"NHS_0.5mg_1",
+      raw_file_name == "x07835"~"Halo_0.5mg_6",
+      raw_file_name == "x07834"~"Halo_0.5mg_5",
+      raw_file_name == "x07833"~"Halo_0.5mg_4",
+      raw_file_name == "x07831"~"Halo_0.5mg_3",
+      raw_file_name == "x07830"~"Halo_0.5mg_2",
+      raw_file_name == "x07829"~"Halo_0.5mg_1",
+      raw_file_name == "x07861"~"NHS_0.25mg_5",
+      raw_file_name == "x07867"~"NHS_0.25mg_6",
+      raw_file_name == "x07860"~"NHS_0.25mg_4",
+      raw_file_name == "x07848"~"Halo_0.25mg_1",
+      raw_file_name == "x07849"~"Halo_0.25mg_2",
+      raw_file_name == "x07850"~"Halo_0.25mg_3",
+      raw_file_name == "x07852"~"Halo_0.25mg_4",
+      raw_file_name == "x07853"~"Halo_0.25mg_5",
+      raw_file_name == "x07854"~"Halo_0.25mg_6",
+      raw_file_name == "x07856"~"NHS_0.25mg_1",
+      raw_file_name == "x07857"~"NHS_0.25mg_2",
+      raw_file_name == "x07858"~"NHS_0.25mg_3",
+      raw_file_name == "x07881"~"NHS_0.125mg_4",
+      raw_file_name == "x07882"~"NHS_0.125mg_5",
+      raw_file_name == "x07883"~"NHS_0.125mg_6",
+      raw_file_name == "x07879"~"NHS_0.125mg_3",
+      raw_file_name == "x07877"~"NHS_0.125mg_1",
+      raw_file_name == "x07875"~"Halo_0.125mg_6",
+      raw_file_name == "x07874"~"Halo_0.125mg_5",
+      raw_file_name == "x07869"~"Halo_0.125mg_1",
+      raw_file_name == "x07870"~"Halo_0.125mg_2",
+      raw_file_name == "x07871"~"Halo_0.125mg_3",
+      raw_file_name == "x07873"~"Halo_0.125mg_4",
+      raw_file_name == "x07878"~"NHS_0.125mg_2"),
+
+
+
+
+    
+    condition = case_when(
+     raw_file_name == "x07825"~"NHS_1mg",
+      raw_file_name == "x07824"~"NHS_1mg",
+      raw_file_name == "x07823"~"NHS_1mg",
+      raw_file_name == "x07821"~"NHS_1mg",
+      raw_file_name == "x07820"~"NHS_1mg",
+      raw_file_name == "x07819"~"NHS_1mg",
+      raw_file_name == "x07817"~"Halo_1mg",
+      raw_file_name == "x07816"~"Halo_1mg",
+      raw_file_name == "x07815"~"Halo_1mg",
+      raw_file_name == "x07813"~"Halo_1mg",
+      raw_file_name == "x07812"~"Halo_1mg",
+      raw_file_name == "x07811"~"Halo_1mg",
+      raw_file_name == "x07804"~"pool_AGC300",
+      raw_file_name == "x07805"~"pool_AGC200",
+      raw_file_name == "x07806"~"pool_AGC300",
+      raw_file_name == "x07807"~"pool_AGC300",
+      raw_file_name == "x07785"~"NHS_pool_0.125mg",
+      raw_file_name == "x07784"~"Halo_pool_0.125mg",
+      raw_file_name == "x07783"~"NHS_pool_0.25mg",
+      raw_file_name == "x07782"~"Halo_pool_0.25mg",
+      raw_file_name == "x07780"~"NHS_pool_0.5mg",
+      raw_file_name == "x07779"~"Halo_pool_0.5mg",
+      raw_file_name == "x07778"~"NHS_pool_1mg",
+      raw_file_name == "x07777"~"Halo_pool_1mg",
+      raw_file_name == "x07773"~"NHS_pool_0.125mg",
+      raw_file_name == "x07770"~"Halo_pool_0.25mg",
+      raw_file_name == "x07772"~"Halo_pool_0.125mg",
+      raw_file_name == "x07765"~"Halo_pool_1mg",
+      raw_file_name == "x07766"~"NHS_pool_1mg",
+      raw_file_name == "x07767"~"Halo_pool_0.5mg",
+      raw_file_name == "x07846"~"NHS_0.5mg",
+      raw_file_name == "x07842"~"NHS_0.5mg",
+      raw_file_name == "x07841"~"NHS_0.5mg",
+      raw_file_name == "x07839"~"NHS_0.5mg",
+      raw_file_name == "x07838"~"NHS_0.5mg",
+      raw_file_name == "x07837"~"NHS_0.5mg",
+      raw_file_name == "x07835"~"Halo_0.5mg",
+      raw_file_name == "x07834"~"Halo_0.5mg",
+      raw_file_name == "x07833"~"Halo_0.5mg",
+      raw_file_name == "x07831"~"Halo_0.5mg",
+      raw_file_name == "x07830"~"Halo_0.5mg",
+      raw_file_name == "x07829"~"Halo_0.5mg",
+      raw_file_name == "x07861"~"NHS_0.25mg",
+      raw_file_name == "x07867"~"NHS_0.25mg",
+      raw_file_name == "x07860"~"NHS_0.25mg",
+      raw_file_name == "x07848"~"Halo_0.25mg",
+      raw_file_name == "x07849"~"Halo_0.25mg",
+      raw_file_name == "x07850"~"Halo_0.25mg",
+      raw_file_name == "x07852"~"Halo_0.25mg",
+      raw_file_name == "x07853"~"Halo_0.25mg",
+      raw_file_name == "x07854"~"Halo_0.25mg",
+      raw_file_name == "x07856"~"NHS_0.25mg",
+      raw_file_name == "x07857"~"NHS_0.25mg",
+      raw_file_name == "x07858"~"NHS_0.25mg",
+      raw_file_name == "x07881"~"NHS_0.125mg",
+      raw_file_name == "x07882"~"NHS_0.125mg",
+      raw_file_name == "x07883"~"NHS_0.125mg",
+      raw_file_name == "x07879"~"NHS_0.125mg",
+      raw_file_name == "x07877"~"NHS_0.125mg",
+      raw_file_name == "x07875"~"Halo_0.125mg",
+      raw_file_name == "x07874"~"Halo_0.125mg",
+      raw_file_name == "x07869"~"Halo_0.125mg",
+      raw_file_name == "x07870"~"Halo_0.125mg",
+      raw_file_name == "x07871"~"Halo_0.125mg",
+      raw_file_name == "x07873"~"Halo_0.125mg",
+      raw_file_name == "x07878"~"NHS_0.125mg"),
+
+
+
+    replicate = case_when(
+      raw_file_name == "x07825"~"6",
+      raw_file_name == "x07824"~"5",
+      raw_file_name == "x07823"~"4",
+      raw_file_name == "x07821"~"3",
+      raw_file_name == "x07820"~"2",
+      raw_file_name == "x07819"~"1",
+      raw_file_name == "x07817"~"6",
+      raw_file_name == "x07816"~"5",
+      raw_file_name == "x07815"~"4",
+      raw_file_name == "x07813"~"3",
+      raw_file_name == "x07812"~"2",
+      raw_file_name == "x07811"~"1",
+      raw_file_name == "x07804"~"0",
+      raw_file_name == "x07805"~"0",
+      raw_file_name == "x07806"~"0",
+      raw_file_name == "x07807"~"0",
+      raw_file_name == "x07785"~"1to6",
+      raw_file_name == "x07784"~"1to6",
+      raw_file_name == "x07783"~"1to6",
+      raw_file_name == "x07782"~"1to6",
+      raw_file_name == "x07780"~"1to6",
+      raw_file_name == "x07779"~"1to6",
+      raw_file_name == "x07778"~"1to6",
+      raw_file_name == "x07777"~"1to6",
+      raw_file_name == "x07773"~"1to6",
+      raw_file_name == "x07770"~"1to6",
+      raw_file_name == "x07772"~"1to6",
+      raw_file_name == "x07765"~"1to6",
+      raw_file_name == "x07766"~"1to6",
+      raw_file_name == "x07767"~"1to6",
+      raw_file_name == "x07846"~"6",
+      raw_file_name == "x07842"~"5",
+      raw_file_name == "x07841"~"4",
+      raw_file_name == "x07839"~"3",
+      raw_file_name == "x07838"~"2",
+      raw_file_name == "x07837"~"1",
+      raw_file_name == "x07835"~"6",
+      raw_file_name == "x07834"~"5",
+      raw_file_name == "x07833"~"4",
+      raw_file_name == "x07831"~"3",
+      raw_file_name == "x07830"~"2",
+      raw_file_name == "x07829"~"1",
+      raw_file_name == "x07861"~"5",
+      raw_file_name == "x07867"~"6",
+      raw_file_name == "x07860"~"4",
+      raw_file_name == "x07848"~"1",
+      raw_file_name == "x07849"~"2",
+      raw_file_name == "x07850"~"3",
+      raw_file_name == "x07852"~"4",
+      raw_file_name == "x07853"~"5",
+      raw_file_name == "x07854"~"6",
+      raw_file_name == "x07856"~"1",
+      raw_file_name == "x07857"~"2",
+      raw_file_name == "x07858"~"3",
+      raw_file_name == "x07881"~"4",
+      raw_file_name == "x07882"~"5",
+      raw_file_name == "x07883"~"6",
+      raw_file_name == "x07879"~"3",
+      raw_file_name == "x07877"~"1",
+      raw_file_name == "x07875"~"6",
+      raw_file_name == "x07874"~"5",
+      raw_file_name == "x07869"~"1",
+      raw_file_name == "x07870"~"2",
+      raw_file_name == "x07871"~"3",
+      raw_file_name == "x07873"~"4",
+      raw_file_name == "x07878"~"2")) %>% 
+  filter(!is.na(condition))
+
+
+## --------------------------------------------------------------------------------------------------------------------------------------------------
+sample_info_for_PRIDE <- comet %>% 
+  distinct(raw_file_name, R2P2_well, condition, replicate,set_id)
+
+write_csv(sample_info_for_PRIDE, file = "modified_data/SuppFig2/sample_info_for_PRIDE.csv")
+
+
+## --------------------------------------------------------------------------------------------------------------------------------------------------
+ascore <- read_csv("raw_data/SuppFig2/ascore/result.csv") %>% #ascore and comet files were switched & didn't bother to rename file.
+
+  clean_names() %>% 
+  separate(col = sample_name, into = c("experiment",  "R2P2_well", "inj_vol"), sep = "_", remove = FALSE) %>%  
+   
+  left_join(y = human_fasta_2024, by = "reference") %>% 
+  rename(intensity = max_intensity_light_c2837) %>% 
+  filter(reverse == FALSE) %>% 
+  mutate(phospho = case_when(
+    grepl("\\@", sequence) ~ "phospho",
+    TRUE ~ "none"))%>% 
+  mutate(
+    sample_id = case_when(
+      raw_file_name == "x07825"~"NHS_1mg_6",
+      raw_file_name == "x07824"~"NHS_1mg_5",
+      raw_file_name == "x07823"~"NHS_1mg_4",
+      raw_file_name == "x07821"~"NHS_1mg_3",
+      raw_file_name == "x07820"~"NHS_1mg_2",
+      raw_file_name == "x07819"~"NHS_1mg_1",
+      raw_file_name == "x07817"~"Halo_1mg_6",
+      raw_file_name == "x07816"~"Halo_1mg_5",
+      raw_file_name == "x07815"~"Halo_1mg_4",
+      raw_file_name == "x07813"~"Halo_1mg_3",
+      raw_file_name == "x07812"~"Halo_1mg_2",
+      raw_file_name == "x07811"~"Halo_1mg_1",
+      raw_file_name == "x07804"~"pool_AGC300_0",
+      raw_file_name == "x07805"~"pool_AGC200_0",
+      raw_file_name == "x07806"~"pool_AGC300_0",
+      raw_file_name == "x07807"~"pool_AGC300_0",
+      raw_file_name == "x07785"~"NHS_pool_0.125mg_1to6",
+      raw_file_name == "x07784"~"Halo_pool_0.125mg_1to6",
+      raw_file_name == "x07783"~"NHS_pool_0.25mg_1to6",
+      raw_file_name == "x07782"~"Halo_pool_0.25mg_1to6",
+      raw_file_name == "x07780"~"NHS_pool_0.5mg_1to6",
+      raw_file_name == "x07779"~"Halo_pool_0.5mg_1to6",
+      raw_file_name == "x07778"~"NHS_pool_1mg_1to6",
+      raw_file_name == "x07777"~"Halo_pool_1mg_1to6",
+      raw_file_name == "x07773"~"NHS_pool_0.125mg_1to6",
+      raw_file_name == "x07770"~"Halo_pool_0.25mg_1to6",
+      raw_file_name == "x07772"~"Halo_pool_0.125mg_1to6",
+      raw_file_name == "x07765"~"Halo_pool_1mg_1to6",
+      raw_file_name == "x07766"~"NHS_pool_1mg_1to6",
+      raw_file_name == "x07767"~"Halo_pool_0.5mg_1to6",
+      raw_file_name == "x07846"~"NHS_0.5mg_6",
+      raw_file_name == "x07842"~"NHS_0.5mg_5",
+      raw_file_name == "x07841"~"NHS_0.5mg_4",
+      raw_file_name == "x07839"~"NHS_0.5mg_3",
+      raw_file_name == "x07838"~"NHS_0.5mg_2",
+      raw_file_name == "x07837"~"NHS_0.5mg_1",
+      raw_file_name == "x07835"~"Halo_0.5mg_6",
+      raw_file_name == "x07834"~"Halo_0.5mg_5",
+      raw_file_name == "x07833"~"Halo_0.5mg_4",
+      raw_file_name == "x07831"~"Halo_0.5mg_3",
+      raw_file_name == "x07830"~"Halo_0.5mg_2",
+      raw_file_name == "x07829"~"Halo_0.5mg_1",
+      raw_file_name == "x07861"~"NHS_0.25mg_5",
+      raw_file_name == "x07867"~"NHS_0.25mg_6",
+      raw_file_name == "x07860"~"NHS_0.25mg_4",
+      raw_file_name == "x07848"~"Halo_0.25mg_1",
+      raw_file_name == "x07849"~"Halo_0.25mg_2",
+      raw_file_name == "x07850"~"Halo_0.25mg_3",
+      raw_file_name == "x07852"~"Halo_0.25mg_4",
+      raw_file_name == "x07853"~"Halo_0.25mg_5",
+      raw_file_name == "x07854"~"Halo_0.25mg_6",
+      raw_file_name == "x07856"~"NHS_0.25mg_1",
+      raw_file_name == "x07857"~"NHS_0.25mg_2",
+      raw_file_name == "x07858"~"NHS_0.25mg_3",
+      raw_file_name == "x07881"~"NHS_0.125mg_4",
+      raw_file_name == "x07882"~"NHS_0.125mg_5",
+      raw_file_name == "x07883"~"NHS_0.125mg_6",
+      raw_file_name == "x07879"~"NHS_0.125mg_3",
+      raw_file_name == "x07877"~"NHS_0.125mg_1",
+      raw_file_name == "x07875"~"Halo_0.125mg_6",
+      raw_file_name == "x07874"~"Halo_0.125mg_5",
+      raw_file_name == "x07869"~"Halo_0.125mg_1",
+      raw_file_name == "x07870"~"Halo_0.125mg_2",
+      raw_file_name == "x07871"~"Halo_0.125mg_3",
+      raw_file_name == "x07873"~"Halo_0.125mg_4",
+      raw_file_name == "x07878"~"NHS_0.125mg_2"),
+
+
+
+
+    
+    condition = case_when(
+     raw_file_name == "x07825"~"NHS_1mg",
+      raw_file_name == "x07824"~"NHS_1mg",
+      raw_file_name == "x07823"~"NHS_1mg",
+      raw_file_name == "x07821"~"NHS_1mg",
+      raw_file_name == "x07820"~"NHS_1mg",
+      raw_file_name == "x07819"~"NHS_1mg",
+      raw_file_name == "x07817"~"Halo_1mg",
+      raw_file_name == "x07816"~"Halo_1mg",
+      raw_file_name == "x07815"~"Halo_1mg",
+      raw_file_name == "x07813"~"Halo_1mg",
+      raw_file_name == "x07812"~"Halo_1mg",
+      raw_file_name == "x07811"~"Halo_1mg",
+      raw_file_name == "x07804"~"pool_AGC300",
+      raw_file_name == "x07805"~"pool_AGC200",
+      raw_file_name == "x07806"~"pool_AGC300",
+      raw_file_name == "x07807"~"pool_AGC300",
+      raw_file_name == "x07785"~"NHS_pool_0.125mg",
+      raw_file_name == "x07784"~"Halo_pool_0.125mg",
+      raw_file_name == "x07783"~"NHS_pool_0.25mg",
+      raw_file_name == "x07782"~"Halo_pool_0.25mg",
+      raw_file_name == "x07780"~"NHS_pool_0.5mg",
+      raw_file_name == "x07779"~"Halo_pool_0.5mg",
+      raw_file_name == "x07778"~"NHS_pool_1mg",
+      raw_file_name == "x07777"~"Halo_pool_1mg",
+      raw_file_name == "x07773"~"NHS_pool_0.125mg",
+      raw_file_name == "x07770"~"Halo_pool_0.25mg",
+      raw_file_name == "x07772"~"Halo_pool_0.125mg",
+      raw_file_name == "x07765"~"Halo_pool_1mg",
+      raw_file_name == "x07766"~"NHS_pool_1mg",
+      raw_file_name == "x07767"~"Halo_pool_0.5mg",
+      raw_file_name == "x07846"~"NHS_0.5mg",
+      raw_file_name == "x07842"~"NHS_0.5mg",
+      raw_file_name == "x07841"~"NHS_0.5mg",
+      raw_file_name == "x07839"~"NHS_0.5mg",
+      raw_file_name == "x07838"~"NHS_0.5mg",
+      raw_file_name == "x07837"~"NHS_0.5mg",
+      raw_file_name == "x07835"~"Halo_0.5mg",
+      raw_file_name == "x07834"~"Halo_0.5mg",
+      raw_file_name == "x07833"~"Halo_0.5mg",
+      raw_file_name == "x07831"~"Halo_0.5mg",
+      raw_file_name == "x07830"~"Halo_0.5mg",
+      raw_file_name == "x07829"~"Halo_0.5mg",
+      raw_file_name == "x07861"~"NHS_0.25mg",
+      raw_file_name == "x07867"~"NHS_0.25mg",
+      raw_file_name == "x07860"~"NHS_0.25mg",
+      raw_file_name == "x07848"~"Halo_0.25mg",
+      raw_file_name == "x07849"~"Halo_0.25mg",
+      raw_file_name == "x07850"~"Halo_0.25mg",
+      raw_file_name == "x07852"~"Halo_0.25mg",
+      raw_file_name == "x07853"~"Halo_0.25mg",
+      raw_file_name == "x07854"~"Halo_0.25mg",
+      raw_file_name == "x07856"~"NHS_0.25mg",
+      raw_file_name == "x07857"~"NHS_0.25mg",
+      raw_file_name == "x07858"~"NHS_0.25mg",
+      raw_file_name == "x07881"~"NHS_0.125mg",
+      raw_file_name == "x07882"~"NHS_0.125mg",
+      raw_file_name == "x07883"~"NHS_0.125mg",
+      raw_file_name == "x07879"~"NHS_0.125mg",
+      raw_file_name == "x07877"~"NHS_0.125mg",
+      raw_file_name == "x07875"~"Halo_0.125mg",
+      raw_file_name == "x07874"~"Halo_0.125mg",
+      raw_file_name == "x07869"~"Halo_0.125mg",
+      raw_file_name == "x07870"~"Halo_0.125mg",
+      raw_file_name == "x07871"~"Halo_0.125mg",
+      raw_file_name == "x07873"~"Halo_0.125mg",
+      raw_file_name == "x07878"~"NHS_0.125mg"),
+
+
+
+    replicate = case_when(
+      raw_file_name == "x07825"~"6",
+      raw_file_name == "x07824"~"5",
+      raw_file_name == "x07823"~"4",
+      raw_file_name == "x07821"~"3",
+      raw_file_name == "x07820"~"2",
+      raw_file_name == "x07819"~"1",
+      raw_file_name == "x07817"~"6",
+      raw_file_name == "x07816"~"5",
+      raw_file_name == "x07815"~"4",
+      raw_file_name == "x07813"~"3",
+      raw_file_name == "x07812"~"2",
+      raw_file_name == "x07811"~"1",
+      raw_file_name == "x07804"~"0",
+      raw_file_name == "x07805"~"0",
+      raw_file_name == "x07806"~"0",
+      raw_file_name == "x07807"~"0",
+      raw_file_name == "x07785"~"1to6",
+      raw_file_name == "x07784"~"1to6",
+      raw_file_name == "x07783"~"1to6",
+      raw_file_name == "x07782"~"1to6",
+      raw_file_name == "x07780"~"1to6",
+      raw_file_name == "x07779"~"1to6",
+      raw_file_name == "x07778"~"1to6",
+      raw_file_name == "x07777"~"1to6",
+      raw_file_name == "x07773"~"1to6",
+      raw_file_name == "x07770"~"1to6",
+      raw_file_name == "x07772"~"1to6",
+      raw_file_name == "x07765"~"1to6",
+      raw_file_name == "x07766"~"1to6",
+      raw_file_name == "x07767"~"1to6",
+      raw_file_name == "x07846"~"6",
+      raw_file_name == "x07842"~"5",
+      raw_file_name == "x07841"~"4",
+      raw_file_name == "x07839"~"3",
+      raw_file_name == "x07838"~"2",
+      raw_file_name == "x07837"~"1",
+      raw_file_name == "x07835"~"6",
+      raw_file_name == "x07834"~"5",
+      raw_file_name == "x07833"~"4",
+      raw_file_name == "x07831"~"3",
+      raw_file_name == "x07830"~"2",
+      raw_file_name == "x07829"~"1",
+      raw_file_name == "x07861"~"5",
+      raw_file_name == "x07867"~"6",
+      raw_file_name == "x07860"~"4",
+      raw_file_name == "x07848"~"1",
+      raw_file_name == "x07849"~"2",
+      raw_file_name == "x07850"~"3",
+      raw_file_name == "x07852"~"4",
+      raw_file_name == "x07853"~"5",
+      raw_file_name == "x07854"~"6",
+      raw_file_name == "x07856"~"1",
+      raw_file_name == "x07857"~"2",
+      raw_file_name == "x07858"~"3",
+      raw_file_name == "x07881"~"4",
+      raw_file_name == "x07882"~"5",
+      raw_file_name == "x07883"~"6",
+      raw_file_name == "x07879"~"3",
+      raw_file_name == "x07877"~"1",
+      raw_file_name == "x07875"~"6",
+      raw_file_name == "x07874"~"5",
+      raw_file_name == "x07869"~"1",
+      raw_file_name == "x07870"~"2",
+      raw_file_name == "x07871"~"3",
+      raw_file_name == "x07873"~"4",
+      raw_file_name == "x07878"~"2")) %>% 
+  filter(!is.na(condition))
+
+
+## --------------------------------------------------------------------------------------------------------------------------------------------------
+plot_ppm_error <- ggplot(data = ascore %>% mutate(raw_file_num = as.factor(str_sub(raw_file_name, start = 2L)))) +
+  geom_hline(yintercept = 10, color = "red4", alpha = 0.4, linewidth = 2) +
+  geom_violin(mapping = aes(x = raw_file_num, y = ppm), draw_quantiles = c(0.25, 0.5, 0.75))+
+  
+  # ylim(0, 20) +
+  alexis_theme() +
+  theme(axis.text.x = element_text(angle = 0, size = 18, hjust = 0.5),
+        axis.text.y = element_text( size = 12, hjust = 1),
+        axis.title = element_text(size = 18)) +
+  coord_flip()
+
+plot_ppm_error
+
+ggsave(filename = "output/SuppFig2/ppm_ascore_violin.png", plot = plot_ppm_error, width = 8, height = 10, scale = 0.4)
+
+
+## --------------------------------------------------------------------------------------------------------------------------------------------------
+ascore.site2 <- ascore %>% 
+  distinct() %>%
+  
+  mutate(seq_no_mods = str_remove_all(ascore_sequence, "[:punct:]"),
+         seq_no_mods = str_remove_all(seq_no_mods, "[n]")) %>% ##remove n from n## mark of nAc modification. 
+  mutate_at(c("a_score_1", "a_score_2", "a_score_3", "position_1", "position_2", "position_3"), funs(as.numeric)) %>% 
+  mutate_at(c("a_score_1", "a_score_2", "a_score_3", "position_1", "position_2", "position_3"), ~replace_na(., 0)) %>%
+
+  select(sample_name, condition, replicate, sample_id,  reference, gene,
+         ascore_sequence, num_sites, a_score_1, a_score_2, a_score_3, position_1, position_2, position_3,
+         seq_no_mods, intensity,
+         q_score_c2837, num_scans_light_c2837,
+         charge, x_corr, 
+         missed_cleavages, num_sites, redundancy, full_protein_sequence, organism, protein_names, length) %>% 
+ 
+##extract modified residue
+  mutate(
+    mod_res1 = str_sub(seq_no_mods, start = position_1+1L, end = position_1 + 1L),
+    mod_res2 = str_sub(seq_no_mods, start = position_2+1L, end = position_2 + 1L),
+    mod_res3 = str_sub(seq_no_mods, start = position_3+1L, end = position_3 + 1L))
+
+
+## pivot wider to match each p-site to an ascore and filter for STY
+ascore.site2_longer <- ascore.site2 %>% 
+  unite(ascore_mod_res1, c(a_score_1, mod_res1, position_1), sep = "_") %>% 
+  unite(ascore_mod_res2, c(a_score_2, mod_res2, position_2), sep = "_") %>%
+  unite(ascore_mod_res3, c(a_score_3, mod_res3, position_3), sep = "_") %>%
+  pivot_longer(cols = c("ascore_mod_res1", "ascore_mod_res2", "ascore_mod_res3")) %>% 
+  separate(value, into = c("ascore", "mod_res", "mod_position"), sep = "_") %>% 
+  mutate(ascore= as.numeric(ascore))
+  
+
+
+
+## --------------------------------------------------------------------------------------------------------------------------------------------------
+ascore.site2_longer_stringent <- ascore.site2_longer %>% 
+  filter(ascore >= 13) %>% 
+  filter(grepl("[STY]", mod_res) == TRUE)
+
+
+## --------------------------------------------------------------------------------------------------------------------------------------------------
+ascore_fasta <- ascore.site2_longer_stringent %>% 
+  filter(!is.na(ascore_sequence))
+
+
+## --------------------------------------------------------------------------------------------------------------------------------------------------
+ascore_fasta_protein_mod_loc_allobservations <- ascore_fasta %>% 
+  mutate(
+    mod_position = as.numeric(mod_position), ##mod_position parsed from ascore output above
+    z_peptide = str_replace_all(seq_no_mods, "[IL]", "Z"),
+    z_protein = str_replace_all(full_protein_sequence, "[IL]", "Z"),
+    z_pept_position_in_z_protein = str_locate(z_protein, pattern = z_peptide), ##get peptide mod_residue from z-substituted peptide and protein
+    mod_position_in_protein = z_pept_position_in_z_protein[,"start"] + mod_position, ##extract mod mod_residue from true protein sequence
+    test_mod_position = str_sub(full_protein_sequence, start = mod_position_in_protein, end = mod_position_in_protein)) %>% 
+  select(test_mod_position, mod_res, mod_position, ascore_sequence, everything()) %>% 
+  unite(col = "mod_protein_location", c(mod_res, mod_position_in_protein), sep = "", remove = FALSE) %>% 
+  unite(col = "ref", c(reference, mod_protein_location), sep = "_", remove = FALSE) 
+  
+ 
+#--------------------------------------------------
+    ##tally up the number of rows that have NA vs. STY in test_mod_position
+mod_pos_group <- ascore_fasta_protein_mod_loc_allobservations %>% 
+  select(test_mod_position) %>% 
+  group_by(test_mod_position) %>% 
+   summarize(
+    num_phospeptides = n())
+mod_pos_group
+
+    ##all mods are on S, T or Y as hoped
+  
+#--------------------------------------------------
+
+
+## --------------------------------------------------------------------------------------------------------------------------------------------------
+ascore_stringent_fasta_precursor <- ascore_fasta_protein_mod_loc_allobservations %>% 
+  group_by(condition, replicate, ascore_sequence, charge, ascore) %>% 
+  filter(intensity == max(intensity)) %>% 
+  ungroup()
+
+
+## --------------------------------------------------------------------------------------------------------------------------------------------------
+#replicate
+write_csv(x = ascore_stringent_fasta_precursor %>% distinct(condition, replicate, ascore_sequence, charge, ascore, intensity, reference, sample_name, gene, protein_names, mod_position_in_protein, ref), file = "modified_data/SuppFig2/distinct_pSTYpeptides_ascore13_replicate.csv", col_names = TRUE)
+
+
+#condition
+write_csv(x = ascore_stringent_fasta_precursor %>% distinct(condition,  ascore_sequence, charge, ascore, intensity, reference, gene, protein_names, mod_position_in_protein, ref), file = "modified_data/SuppFig2/distinct_pSTYpeptides_ascore13_condition.csv", col_names = TRUE)
+
+
+## --------------------------------------------------------------------------------------------------------------------------------------------------
+#keep single PSM per precursor:
+
+ascore_fasta_protein_mod_loc_sum_psite_allobservations <- ascore_fasta_protein_mod_loc_allobservations %>% 
+  group_by(condition, replicate, ascore_sequence, charge, ascore) %>% 
+  filter(intensity == max(intensity)) %>% 
+  ungroup() %>% 
+
+
+
+
+  ##SUM PRECURSOR INTENSITIES TO P-SITES + median normalize
+
+ 
+  group_by(condition, replicate,  sample_id, reference, mod_res,  ref) %>% #ref = unique p-site
+  
+  #sum PSM intensities of confident p-sites to individual p-sites
+  mutate(
+    sum_intensity_precursor_to_psite = sum(intensity),
+    log2_psite_qty = log2(sum_intensity_precursor_to_psite)) %>% 
+  ungroup() %>% 
+  
+  #keep single summed intensity per p-site prior to median normalization
+  distinct(condition, replicate, sample_id, reference, mod_res, ref, sum_intensity_precursor_to_psite, log2_psite_qty) %>% 
+  
+  
+  #median normalize intensities summed to p-site
+  mutate(
+    global_median_intensity = median(log2_psite_qty)) %>% 
+  group_by(condition, replicate) %>% 
+  mutate(
+    sample_median_intensity = median(log2_psite_qty)) %>% 
+  ungroup() %>% 
+  mutate(
+    median_norm_intensity = log2_psite_qty - sample_median_intensity + global_median_intensity,
+    raw_median_norm_intensity = 2^median_norm_intensity)
+
+
+
+## --------------------------------------------------------------------------------------------------------------------------------------------------
+#could call df 3repsonce, but omitting for easier integration into pre-existing code
+ascore_fasta_protein_mod_loc_sum_psite <- ascore_fasta_protein_mod_loc_sum_psite_allobservations %>% 
+  group_by(condition, ref) %>% 
+  mutate(
+    n_obs_per_condition = n()  ) %>% 
+  ungroup() %>% 
+  group_by(ref) %>% 
+  mutate(max_obs_in_any_condition = max(n_obs_per_condition)) %>% 
+  ungroup() #%>% 
+  # filter(max_obs_in_any_condition > 2) #requires 3 or more observations in one condition to be considered in all later analyses.
+
+
+## --------------------------------------------------------------------------------------------------------------------------------------------------
+unique_sites <- ascore_fasta_protein_mod_loc_sum_psite %>% 
+  distinct(ref)
+
+
+## --------------------------------------------------------------------------------------------------------------------------------------------------
+ascore_fasta_protein_mod_loc <- ascore_fasta_protein_mod_loc_allobservations
+#no completeness filter applied since this is a technical comparison.
+
+
+## --------------------------------------------------------------------------------------------------------------------------------------------------
+enrichment_efficiency_count_df <- comet %>% 
+  distinct( condition, replicate,sequence, phospho) %>% 
+  group_by( condition, replicate, phospho) %>% 
+  summarize(
+    num_phospho = n()) %>% 
+  pivot_wider(names_from = phospho, values_from = num_phospho) %>% 
+  mutate(
+    total_pept = none + phospho,
+    individual_phosphopept_enrich_efficiency = phospho / total_pept) %>% 
+  ungroup() %>% 
+  group_by( condition) %>% 
+  mutate(
+    avg_phosphopeptide_enrichment_efficiency = mean(individual_phosphopept_enrich_efficiency)) %>% 
+  ungroup() %>% 
+  mutate(
+    sample_id = paste(condition, replicate, sep = "_") )
+
+
+##view df of phosphopeptide enrichment efficiency ratios
+enrichment_efficiency_count_df
+
+
+## --------------------------------------------------------------------------------------------------------------------------------------------------
+set.seed(11)
+plot_ppept_enrich_efficiency <- ggplot() +
+  geom_bar(data = (enrichment_efficiency_count_df %>%
+                     # mutate(condition = fct_relevel(condition, "NHS", "Halo")) %>%
+                     distinct(condition, avg_phosphopeptide_enrichment_efficiency)),
+           mapping = aes(x = condition, y = avg_phosphopeptide_enrichment_efficiency),
+           stat = "identity", alpha = 1, fill = "gray80") + 
+  geom_jitter(data = enrichment_efficiency_count_df,
+              mapping = aes(x = condition, y = individual_phosphopept_enrich_efficiency, fill = replicate), shape = 1,
+              width = 0.1, height = 0, show.legend = FALSE) +
+  geom_hline(yintercept = 0.95, linewidth = 1, alpha = 0.5, linetype = 2) +
+  annotate(geom = "text",x = 7, y = 0.88, label = ">95%\npurity", size = 4, lineheight = 0.75) +
+  alexis_theme()+
+  theme(legend.position = "none") +
+  ylab("p-/all pept (count)") +
+  theme(axis.text.x = element_text(angle = -90, vjust = 0.5, hjust = 0)) +
+  # scale_y_continuous(expand = c(0,0)) +
+  expand_limits(y = c(0, 1)) +
+  
+  scale_y_continuous(expand = c(0,0)) +
+  xlab("")
+  ## ggtitle("Phosphopeptide enrichment efficiency")
+
+plot_ppept_enrich_efficiency
+ggsave("output/SuppFig2/phospho_pept_enrich_efficiency_counts.png", plot = plot_ppept_enrich_efficiency, width = 10, height = 10, scale = 0.5)
+ggsave("output/SuppFig2/phospho_pept_enrich_efficiency_counts.pdf", plot = plot_ppept_enrich_efficiency, width = 10, height = 10, scale = 0.5)
+
+
+## --------------------------------------------------------------------------------------------------------------------------------------------------
+enrichment_efficiency_intensity_df <- comet %>% 
+  distinct(sequence,  condition, replicate, phospho, intensity) %>% 
+  group_by(sequence,  condition, replicate, phospho) %>% 
+  
+##filter by max intensity for every peptide
+  filter(intensity  == max(intensity)) %>% 
+  ungroup() %>% 
+  group_by(phospho, condition, replicate) %>% 
+  
+##summarize intensity of all peptides and just p-peptides
+  summarise(all_peptides_intensity = sum(intensity)) %>% 
+  pivot_wider(values_from = all_peptides_intensity, names_from = phospho) %>% 
+  
+##grouped mutate for taking mean of summed intensities for each replicate within each condition  
+  group_by(condition) %>%   
+  mutate(mean_phos = mean(phospho),
+         mean_non = mean(none)) %>% 
+  ungroup() %>% 
+  mutate(mean_ratio = mean_phos / (mean_non + mean_phos),
+         rep_ratio = phospho / (none + phospho)) %>% 
+  ungroup() %>% 
+  mutate(
+    sample_id = paste(condition, replicate, sep = "_") )
+  
+  
+  enrichment_efficiency_intensity_df
+
+
+## --------------------------------------------------------------------------------------------------------------------------------------------------
+set.seed(11)
+##relative to intensity of all peptides (with and without phospho)
+
+plot_ratio_phos_intensity <- ggplot(data = (enrichment_efficiency_intensity_df )) +#%>%
+                                              # mutate(condition = fct_relevel(condition, "NHS", "Halo")))) +
+  geom_bar(aes(x = condition, y = mean_ratio),
+           stat = "identity",
+           position = "dodge",
+           fill = "skyblue2") +
+  geom_point(aes(x = condition,
+                 y = rep_ratio,
+                 fill = replicate),
+             position = position_jitterdodge(dodge.width = 0.35), alpha = 1, size =2, shape = 1, show.legend = FALSE) +
+  geom_hline(yintercept = 0.99, linewidth = 1, alpha = 0.5, linetype = 2) +
+  annotate(geom = "text",x = 7, y = 0.95, label = "> 99%\npurity", size = 4, lineheight= 0.5) +
+  alexis_theme()+
+  scale_y_continuous(expand = c(0,0), limits = c(0, 1.02), breaks = c(seq(0, 1, 0.25)))+ 
+  expand_limits(y = c(0, 1.005)) +
+  # theme_bw(14) +
+  theme(axis.text.x = element_text(angle=-90, vjust = 0.5, hjust = 0), legend.position = "none") +
+  # theme(legend.position = "none") +
+  ylab("p-/all pept (intensity)") + xlab("")
+
+plot_ratio_phos_intensity
+ggsave("output/SuppFig2/phospho_pept_intensity_ratio.png", plot = plot_ratio_phos_intensity, width = 8, height = 12, scale = 0.5)
+ggsave("output/SuppFig2/phospho_pept_intensity_ratio.pdf", plot = plot_ratio_phos_intensity, width = 8, height = 12, scale = 0.5)
+
+
+## --------------------------------------------------------------------------------------------------------------------------------------------------
+plot_ppept_detections <- ggplot() +
+  geom_bar(data = (enrichment_efficiency_count_df %>%
+                     # mutate(condition = fct_relevel(condition, "NHS", "Halo")) %>% 
+                     ungroup() %>% 
+                     group_by(condition) %>% 
+                     mutate(
+                       mean_phospho = mean(phospho)) %>% 
+                     distinct(condition, mean_phospho)),
+           
+           mapping = aes(x = condition, y = mean_phospho, fill = condition),
+           stat = "identity", alpha = 1) + 
+  geom_jitter(data = enrichment_efficiency_count_df,
+              mapping = aes(x = condition, y = phospho,
+                            # color = replicate,
+                            color = as.factor(replicate)), shape = 21, alpha = 0.8,
+              width = 0.25, height = 0, show.legend = FALSE, stroke = 0.5, size = 2) +
+  # geom_hline(yintercept = 12000, linewidth = 0.5, alpha = 0.5, linetype = 2) +
+  # annotate(geom = "text",x = 7.5, y = 10000, label = ">12,000\np-peptides", size = 4, lineheight = 0.75) +
+  alexis_theme2()+
+  theme(legend.position = "none") +
+  ylab("unqiue p-peptides") +
+  xlab("") +
+  theme(axis.text.x = element_text(angle = -90, vjust = 0.5, hjust = 0)) +
+  # scale_y_continuous(expand = c(0,0)) +
+  # scale_fill_brewer(palette = "Purples") +
+  scale_color_manual(values = c(rep("black", 6))) +
+  scale_fill_manual(values = c(rep("grey", 4), rep("#CC9966", 4))) +
+  
+  
+  # ylim(0, 15000) +
+  scale_y_continuous(expand = c(0,0), limits = c(0, 5200), breaks = c(seq(0, 5000, 1000))) #removes whitespace below bars!
+  ## ggtitle("Phosphopeptide enrichment efficiency")
+
+plot_ppept_detections
+ggsave("output/SuppFig2/phospho_pept_counts_noAscore.png", plot = plot_ppept_detections, width = 8, height = 10, scale = 0.5)
+ggsave("output/SuppFig2/phospho_pept_counts_noAscore.pdf", plot = plot_ppept_detections, width = 8, height = 10, scale = 0.5)
+
+
+## --------------------------------------------------------------------------------------------------------------------------------------------------
+plot_psm_intensity_distribution_reps <- ggplot(data = comet) + #%>%
+                                                 # mutate(condition = fct_relevel(condition, "NHS", "Halo"))) +
+  geom_boxplot(mapping = aes(x = condition, y = log2(intensity), color = as.factor(replicate), fill = condition),
+               outlier.shape = 21,
+               outlier.alpha = 0.3) +
+  # theme_bw(18) +
+  alexis_theme2() +
+  theme(legend.position = "none") +
+  scale_color_manual(values = c(rep("black", 6))) +
+  scale_fill_manual(values = c(rep("grey", 4), rep("#CC9966", 4))) +
+
+  # scale_fill_brewer(palette = "PuBu") +
+  # theme(axis.text.x = element_text(angle=90, vjust = 0.25, hjust = 1), legend.position = "none") +
+  ylab(expression(log[2]~(intensity))) + xlab("condition") +
+  ggtitle("Intensity of all PSMs")
+
+plot_psm_intensity_distribution_reps
+
+
+ggsave("output/SuppFig2/all_psm_intensity_distribution_reps.png", plot = plot_psm_intensity_distribution_reps, width = 14, height = 10, scale = 0.4)
+ggsave("output/SuppFig2/all_psm_intensity_distribution_reps.pdf", plot = plot_psm_intensity_distribution_reps, width = 12, height = 10, scale = 0.4)
+
+
+## --------------------------------------------------------------------------------------------------------------------------------------------------
+distinct_p_sites_total <- ascore_fasta_protein_mod_loc %>% 
+  distinct(reference, mod_position_in_protein, mod_res) %>%
+  mutate(filter_level = "Ascore >= 13")
+
+
+## --------------------------------------------------------------------------------------------------------------------------------------------------
+distinct_pY_sites_total_summary <- distinct_p_sites_total %>% 
+  group_by(mod_res) %>% 
+  summarize(
+    n_distinct_sites = n()) %>% 
+  ungroup()
+
+distinct_pY_sites_total_summary
+
+
+## --------------------------------------------------------------------------------------------------------------------------------------------------
+plot_distinct_p_sites_total <- ggplot(data = distinct_p_sites_total) +
+  geom_bar(mapping = aes(x = filter_level, fill = mod_res)) +
+  theme_bw(18) +
+  scale_fill_viridis_d() +
+  ylab("unique phospho sites") +
+  alexis_theme()+
+  # expand_limits(y = c(0, 2000)) +
+  scale_y_continuous(expand = c(0,0))
+  # theme(axis.text.x = element_text(angle = 90, vjust = 0.25, hjust = 1))
+
+plot_distinct_p_sites_total
+
+ggsave("output/SuppFig2/distinct_p_sites_total.png", plot = plot_distinct_p_sites_total, width = 6, height = 8, scale = 0.4)
+ggsave("output/SuppFig2/distinct_p_sites_total.pdf", plot = plot_distinct_p_sites_total, width = 8, height = 8, scale = 0.4)
+
+
+## --------------------------------------------------------------------------------------------------------------------------------------------------
+distinct_p_sites_condition <- ascore_fasta_protein_mod_loc %>% 
+  distinct(reference, mod_protein_location, mod_res, condition)
+##this collapses all  replicates into a single set of unique p sites.
+
+
+## --------------------------------------------------------------------------------------------------------------------------------------------------
+write_csv(x = distinct_p_sites_condition, file = "modified_data/SuppFig2/pSTYsites_ascore13_condition.csv", col_names = TRUE)
+
+
+## --------------------------------------------------------------------------------------------------------------------------------------------------
+plot_distinct_p_sites_condition <- ggplot(data = distinct_p_sites_condition) + # %>% 
+                                            # mutate(condition = fct_relevel(condition, "NHS", "Halo"))) +
+  geom_bar(mapping = aes(x = condition, fill = mod_res)) +
+
+  scale_fill_viridis_d() +
+  ylab("unique phospho sites") +
+  alexis_theme()+
+  expand_limits(y = c(0, 4000)) +
+  scale_y_continuous(expand = c(0,0)) +
+  xlab("bead type &\npeptide input amt") +
+  theme(axis.text.x = element_text(angle = -60, vjust = 0.25, hjust = 0.1, size = 12))
+
+plot_distinct_p_sites_condition
+
+ggsave("output/SuppFig2/distinct_p_sites_condition.png", plot = plot_distinct_p_sites_condition, width = 8, height = 12, scale = 0.45)
+ggsave("output/SuppFig2/distinct_p_sites_condition.pdf", plot = plot_distinct_p_sites_condition, width = 8, height = 12, scale = 0.4)
+
+
+## --------------------------------------------------------------------------------------------------------------------------------------------------
+counts_distinct_psites_condition <- distinct_p_sites_condition %>% 
+  distinct() %>% 
+  group_by(condition, mod_res) %>% 
+  summarize(
+    n_distinct_sites = n()) %>% 
+  ungroup() %>% 
+  group_by(condition) %>% 
+  mutate(total_sites = sum(n_distinct_sites)) %>% 
+  ungroup() %>% 
+  mutate(
+    ratio_pY_sites = n_distinct_sites / total_sites * 100) %>% 
+  group_by(mod_res) %>% 
+  mutate(
+    average_pYsite_percent = mean(ratio_pY_sites) ) %>% 
+  ungroup()
+
+counts_distinct_psites_condition
+
+
+## --------------------------------------------------------------------------------------------------------------------------------------------------
+distinct_p_sites_reps <- ascore_fasta_protein_mod_loc %>% 
+  ungroup() %>% 
+  # filter(replicate %in% c("01", "02", "03", "1", "2", "3")) %>% #distinct(replicate) - successfully downsampled to 3 reps 
+  distinct(condition, replicate, sample_id, reference, mod_protein_location, mod_res)
+##this collapses all  replicates into a single set of unique p sites.
+
+
+## --------------------------------------------------------------------------------------------------------------------------------------------------
+write_csv(x = distinct_p_sites_reps, file = "modified_data/SuppFig2/pSTYsites_ascore13_reps.csv", col_names = TRUE)
+
+
+## --------------------------------------------------------------------------------------------------------------------------------------------------
+plot_distinct_p_sites_reps <- ggplot(data = distinct_p_sites_reps) + # %>% 
+                                       # mutate(sample_id = fct_relevel(sample_id,
+                                       #                                "NHS 1", "NHS 2", "NHS 3", "Halo 1", "Halo 2", "Halo 3")))+
+  geom_bar(mapping = aes(x = sample_id, fill = mod_res)) +
+  theme_bw(10) +
+  scale_fill_viridis_d() +
+  ylab("unique phospho sites")  +
+  xlab("1 mg peptide input") +
+  alexis_theme()+
+  expand_limits(y = c(0, 3000)) +
+  scale_y_continuous(expand = c(0,0)) +
+  theme(axis.text.x = element_text(angle = -60, vjust = 0.75, hjust = 0))
+
+plot_distinct_p_sites_reps
+
+ggsave("output/SuppFig2/distinct_p_sites_reps.png", plot = plot_distinct_p_sites_reps, width = 14, height = 10, scale = 0.4)
+ggsave("output/SuppFig2/distinct_p_sites_reps.pdf", plot = plot_distinct_p_sites_reps, width = 14, height = 10, scale = 0.4)
+
+
+## --------------------------------------------------------------------------------------------------------------------------------------------------
+summarize_distinct_psites_replicates <- distinct_p_sites_reps %>%
+  ungroup() %>% 
+  group_by(condition, replicate, sample_id, mod_res) %>% 
+  summarize(
+    n_psites = n()) %>% 
+  ungroup()
+
+summarize_distinct_psites_replicates
+
+
+
+#errorbar ------------------------------------------------------------
+df_geom_errorbar <- summarize_distinct_psites_replicates %>%
+  group_by(condition, mod_res) %>%
+  mutate(
+    min_psites = min(n_psites), 
+    max_psites = max(n_psites), 
+    mid_psites = mean(n_psites)) %>% 
+  ungroup() %>% 
+  distinct(condition, mod_res, min_psites, max_psites) #could also include mid psites later if needed
+
+df_geom_errorbar
+
+
+## --------------------------------------------------------------------------------------------------------------------------------------------------
+plot_distinct_p_sites_condition_reps_wPTS <- ggplot() +
+  geom_bar(data = (distinct_p_sites_condition %>%
+                     filter(grepl("pool", condition) == FALSE)), #%>% 
+                     # mutate(condition = fct_relevel(condition, "NHS", "Halo"))),
+                   mapping = aes(x = condition, fill = mod_res),show.legend = FALSE) +
+  
+  geom_errorbar(data = (df_geom_errorbar %>%
+                          filter(grepl("pool", condition) == FALSE)), #%>% 
+                     # mutate(condition = fct_relevel(condition, "NHS", "Halo"))),
+                mapping = aes(x = condition, ymin = min_psites, ymax = max_psites),  show.legend = FALSE, linewidth = 0.5, width = 0.25, color = "grey90") +
+  
+  
+  geom_jitter(data = (distinct_p_sites_reps%>%
+                        filter(grepl("pool", condition) == FALSE)) , #%>% 
+                     # mutate(condition = fct_relevel(condition, "NHS", "Halo"))),
+              mapping = aes(x = condition, color = sample_id, fill = mod_res),
+              stat = "count", shape = 1, show.legend = FALSE, size = 1, stroke =0.5,
+              width = 0.35, height = 0, alpha = 0.5) +
+   
+
+  facet_wrap(facets = vars(mod_res), ncol = 3) +
+  scale_fill_viridis_d() +
+  scale_color_manual(values = rep(c("grey70" ),60)) +
+  ylab("unique phospho sites")   +
+  alexis_theme()+
+  scale_y_continuous(expand = c(0,0)) +
+  theme(axis.text.x = element_text(angle = -60, vjust = 0.75, hjust = 0, size = 6))
+
+plot_distinct_p_sites_condition_reps_wPTS
+
+ggsave("output/SuppFig2/distinct_p_sites_condition_wPTS.png", plot = plot_distinct_p_sites_condition_reps_wPTS, width = 16, height = 16, scale = 0.4)
+ggsave("output/SuppFig2/distinct_p_sites_condition_wPTS.pdf", plot = plot_distinct_p_sites_condition_reps_wPTS, width = 16, height = 16, scale = 0.4)
+
+
+## --------------------------------------------------------------------------------------------------------------------------------------------------
+set.seed(11)
+plot_distinct_p_sites_condition_reps_wPTS <- ggplot() +
+  geom_bar(data = (distinct_p_sites_condition %>%
+                     
+                     # mutate(condition = fct_relevel(condition, "NHS", "Halo"))%>%
+                     filter(mod_res == "Y")),
+                    
+                   mapping = aes(x = condition, fill = mod_res),show.legend = FALSE, color = "black", size = 0.5) +
+  
+   geom_errorbar(data = (df_geom_errorbar %>%
+                          
+                          # mutate(condition = fct_relevel(condition, "NHS", "Halo"))%>%
+                           filter(mod_res == "Y")),
+                mapping = aes(x = condition, ymin = min_psites, ymax = max_psites),  show.legend = FALSE, linewidth = 0.5, width = 0.2, color = "grey30") +
+  
+  
+  geom_jitter(data = (distinct_p_sites_reps%>%
+                        # mutate(condition = fct_relevel(condition, "NHS", "Halo"))%>%
+                        filter(mod_res == "Y")),
+              mapping = aes(x = condition, color = sample_id, fill = mod_res),
+              stat = "count", shape = 21, show.legend = FALSE, size = 1.5, stroke =0.5, fill = "white",
+              width = 0.1, height = 0, alpha = 0.75) +
+  
+ 
+   
+  # theme_bw(10) +
+  # facet_wrap(facets = vars(mod_res), ncol = 3) +
+  scale_fill_viridis_d(direction = -1) +
+  scale_color_manual(values = rep(c("grey30" ),60)) +
+  ylab("unique pY sites")   +
+  xlab("bead type") +
+  # xlab("1 mg peptide input") +
+  alexis_theme2()+
+  scale_y_continuous(expand = c(0,0), limits = c(0, 4005), breaks = c(seq(0, 4000, 1000))) +
+  expand_limits(y = c(0, 4000)) +
+  theme(axis.text.x = element_text(angle = -60, vjust = 0.8, hjust = 0, size = 10))
+
+plot_distinct_p_sites_condition_reps_wPTS
+
+ggsave("output/SuppFig2/distinct_pY_sites_condition_wPTS.png", plot = plot_distinct_p_sites_condition_reps_wPTS, width = 10, height = 10, scale = 0.4)
+ggsave("output/SuppFig2/distinct_pY_sites_condition_wPTS.pdf", plot = plot_distinct_p_sites_condition_reps_wPTS, width = 10, height = 10, scale = 0.4)
+
+
+## --------------------------------------------------------------------------------------------------------------------------------------------------
+ascore_fasta_protein_mod_loc_pY <- ascore_fasta_protein_mod_loc %>% 
+  filter(mod_res == "Y")
+
+ascore_fasta_protein_mod_loc_pY_sum_psite <- ascore_fasta_protein_mod_loc_sum_psite %>% 
+  filter(mod_res == "Y")
+
+
+## --------------------------------------------------------------------------------------------------------------------------------------------------
+df_overlaps_reps <- ascore_fasta_protein_mod_loc_pY %>% 
+  ungroup() %>% 
+  distinct(condition, replicate, sample_id, ref) %>% 
+  mutate(psite_present = 1) %>% 
+  pivot_wider(names_from = sample_id, values_fill = 0, values_from = psite_present, id_cols = ref)
+
+df_overlaps_reps_less <- df_overlaps_reps %>% 
+  select(-ref) %>% 
+  mutate_all(.funs = as.numeric) %>% 
+  as.matrix() %>% 
+  as.data.frame()
+
+upset_plot_reps <- upset(data = df_overlaps_reps_less, nsets = 30, order.by = "freq", text.scale = 3, nintersects = 30) 
+upset_plot_reps
+
+
+png("output/SuppFig2/upset_plot_reps_pYsites.png", width = 1000, height = 600)
+print(upset_plot_reps)
+dev.off()
+
+
+pdf("output/SuppFig2/upset_plot_reps_pYsites.pdf", width = 12, height = 8)
+print(upset_plot_reps)
+dev.off()
+
+
+## --------------------------------------------------------------------------------------------------------------------------------------------------
+df_overlaps_condition <- ascore_fasta_protein_mod_loc_pY %>% 
+  ungroup() %>% 
+  distinct(condition,  ref) %>% 
+  mutate(psite_present = 1) %>% 
+  pivot_wider(names_from = condition, values_fill = 0, values_from = psite_present, id_cols = ref)
+
+df_overlaps_condition_less <- df_overlaps_condition %>% 
+  select(-ref) %>% 
+  mutate_all(.funs = as.numeric) %>% 
+  as.matrix() %>% 
+  as.data.frame()
+
+upset_plot_condition <- upset(data = df_overlaps_condition_less, nsets = 7, order.by = "freq", text.scale = 4, nintersects = 30) 
+upset_plot_condition
+
+
+png("output/SuppFig2/upset_plot_condition_pYsites.png", width = 500, height = 400)
+print(upset_plot_condition)
+dev.off()
+
+
+pdf("output/SuppFig2/upset_plot_condition_pYsites.pdf", width = 12, height = 8)
+print(upset_plot_condition)
+dev.off()
+
+
+## --------------------------------------------------------------------------------------------------------------------------------------------------
+psite_overlaps_condition <- df_overlaps_condition %>% 
+  ungroup() %>% 
+  pivot_longer(cols = c('Halo_1mg': 'NHS_0.125mg'), names_to = c("condition")) %>% 
+  group_by(ref) %>% 
+  mutate(
+    n_detections = sum(value)) %>% 
+  ungroup()  
+  # filter(replicate %in% c(1, 2, 3)) %>% 
+  
+ascore_psite_overlaps <- ascore_fasta_protein_mod_loc_pY_sum_psite %>% 
+  inner_join(y = psite_overlaps_condition %>%  distinct(ref, n_detections), by = c("ref")) %>% 
+  mutate(n_detections = as.factor(n_detections))
+
+
+
+
+## --------------------------------------------------------------------------------------------------------------------------------------------------
+#plot
+  ## intensity by condition overlaps---------------------------------------------
+intensity_distribution_psite_overlaps <- ggplot(data = ascore_psite_overlaps) +
+  geom_violin(mapping = aes(x = n_detections, y = median_norm_intensity, fill = condition), draw_quantiles = c(0.25, 0.5, 0.75), show.legend = FALSE) +
+  theme_bw(18) +
+  theme(strip.text = element_text(size = 8)) +
+  facet_wrap(facets = vars(condition), nrow = 1)
+intensity_distribution_psite_overlaps
+ggsave(filename = "output/SuppFig2/intensity_distribution_psite_overlaps.png", plot = intensity_distribution_psite_overlaps, width = 20, height = 10, scale = 0.4)
+
+
+
+
+## --------------------------------------------------------------------------------------------------------------------------------------------------
+all_psite_CVs <- qc_cvs(data = ascore_fasta_protein_mod_loc_pY_sum_psite,
+                            grouping = ref,
+                            intensity = sum_intensity_precursor_to_psite,
+                            condition = condition,
+                            plot = FALSE)
+
+all_psite_CVs_plot <- qc_cvs(data = ascore_fasta_protein_mod_loc_pY_sum_psite,
+                            grouping = ref,
+                            intensity = sum_intensity_precursor_to_psite,
+                            condition = condition,
+                            plot_style = "violin",
+                            plot = TRUE)
+
+#return
+all_psite_CVs
+all_psite_CVs_plot
+
+ggsave(filename = "output/SuppFig2/all_psite_CVs_plotNotNorm.png", plot = all_psite_CVs_plot, width = 18, height = 14, scale = 0.4)
+
+
+## --------------------------------------------------------------------------------------------------------------------------------------------------
+all_psite_CVs_NORM <- qc_cvs(data = ascore_fasta_protein_mod_loc_pY_sum_psite,
+                            grouping = ref,
+                            intensity = raw_median_norm_intensity,
+                            condition = condition,
+                            plot = FALSE)
+
+all_psite_CVs_plot_NORM <- qc_cvs(data = ascore_fasta_protein_mod_loc_pY_sum_psite,
+                            grouping = ref,
+                            intensity = raw_median_norm_intensity,
+                            condition = condition,
+                            plot_style = "violin",
+                            plot = TRUE)
+
+#return
+all_psite_CVs_NORM
+all_psite_CVs_plot_NORM
+
+ggsave(filename = "output/SuppFig2/all_psite_CVs_plot_Norm.png", plot = all_psite_CVs_plot_NORM, width = 18, height = 14, scale = 0.4)
+
+
+
+
+## --------------------------------------------------------------------------------------------------------------------------------------------------
+all_psite_myCVs_NORM <- my_qc_cvs(data = ascore_fasta_protein_mod_loc_pY_sum_psite,
+                            grouping = ref,
+                            intensity = raw_median_norm_intensity,
+                            condition = condition,
+                            xlab = "peptide input (mg)",
+                            plot_style = "boxplot",
+                            max_cv = 100,
+                            plot = TRUE)
+
+all_psite_myCVs_NORM
+
+ggsave(filename = "output/SuppFig2/all_psite_myCVs_NORM.png", plot = all_psite_myCVs_NORM, width = 18, height = 14, scale = 0.4)
+
+ggsave(filename = "output/SuppFig2/all_psite_myCVs_NORM.pdf", plot = all_psite_myCVs_NORM, width = 18, height = 14, scale = 0.4)
+
+
+## --------------------------------------------------------------------------------------------------------------------------------------------------
+#check median normalization by plotting.
+
+##NOT normalized intensities --------------------------------------------------------
+check_all_psite_intensity_before_normalization <- qc_intensity_distribution(
+  data = ascore_fasta_protein_mod_loc_pY_sum_psite,
+  sample = sample_id, 
+  grouping = ref,
+  intensity_log2 = log2_psite_qty,
+  plot_style = "boxplot")
+
+check_all_psite_intensity_before_normalization
+
+ggsave("output/SuppFig2/check_all_psite_intensity_before_normalization.pdf", plot = check_all_psite_intensity_before_normalization, width = 15, height = 15, scale = 0.5)
+
+ggsave("output/SuppFig2/check_all_psite_intensity_before_normalization.png", plot = check_all_psite_intensity_before_normalization, width = 15, height = 15, scale = 0.5)
+
+##YES normalized intensities --------------------------------------------------------
+check_all_psite_intensity_after_normalization <- qc_intensity_distribution(
+  data = ascore_fasta_protein_mod_loc_pY_sum_psite,
+  sample = sample_id, 
+  grouping = ref,
+  intensity_log2 = median_norm_intensity,
+  plot_style = "boxplot")
+
+check_all_psite_intensity_after_normalization
+
+ggsave("output/SuppFig2/check_all_psite_intensity_after_normalization.pdf", plot = check_all_psite_intensity_after_normalization, width = 15, height = 15, scale = 0.5)
+
+ggsave("output/SuppFig2/check_all_psite_intensity_after_normalization.png", plot = check_all_psite_intensity_after_normalization, width = 15, height = 15, scale = 0.5)
+
+
+
+## --------------------------------------------------------------------------------------------------------------------------------------------------
+plot_pY_intensity_distribution_reps <- ggplot(data = ascore_fasta_protein_mod_loc_pY_sum_psite %>% ungroup() ) +
+  # geom_hline(yintercept = 19.25, linewidth = 0.5, alpha = 0.3, linetype = 1) +
+  geom_boxplot(mapping = aes(x = condition, y = log2_psite_qty, color = as.factor(replicate), fill = condition),
+               outliers = FALSE,
+               outlier.shape = 21,
+               outlier.alpha = 0.3,
+               show.legend = FALSE,
+               alpha = 0.5) +
+  # scale_fill_brewer(palette= "Dark2") +
+  scale_color_manual(values = c("black","black","black","black","black","black")) +
+  scale_fill_manual(values = c(rep("grey90", 1), rep("grey70", 1),rep("grey50",1),rep("grey30", 1),rep("wheat1", 1), rep("tan", 1),rep("tan3",1),rep("chocolate4", 1))) +
+  alexis_theme2() +
+  # theme_bw(18) +
+  theme(legend.position = "none",
+        # axis.text.x = element_text(angle=0, hjust = 0.5),
+        panel.grid.major.y  = element_blank()) +
+  # scale_y_continuous(expand = c(0,0),
+  #                    breaks = c(8, 16, 19.25, 24, 32),
+  #                    labels = c("8", "16", "19.25", "24", "32")) +#removes whitespace below bars! custom ticks
+  # expand_limits(y = c(8, 34.5)) +
+  ylab(expression(log[2]~(intensity))) + xlab("bead type &\npeptide input (mg)") #+
+  # ggtitle("Intensity of pY sites")
+
+plot_pY_intensity_distribution_reps
+
+
+ggsave("output/SuppFig2/plot_pY_intensity_distribution_reps.png", plot = plot_pY_intensity_distribution_reps, width = 12, height = 12, scale = 0.4)
+
+ggsave("output/SuppFig2/plot_pY_intensity_distribution_reps.pdf", plot = plot_pY_intensity_distribution_reps, width = 12, height =12, scale = 0.4)
+
+
+## --------------------------------------------------------------------------------------------------------------------------------------------------
+all_pYsite_correlation <- qc_sample_correlation(
+  data = ascore_fasta_protein_mod_loc_pY_sum_psite,
+  sample = sample_id, 
+  grouping = ref,
+  method = "spearman",
+  intensity_log2 = median_norm_intensity,
+  condition = condition,
+  interactive = FALSE)
+
+
+all_pYsite_correlation
+
+ggsave("output/SuppFig2/all_pYsite_correlation_Spearman.png", plot = all_pYsite_correlation, width = 20, height = 20, scale = 0.4)
+ggsave("output/SuppFig2/all_pYsite_correlation_Spearman.pdf", plot = all_pYsite_correlation, width = 16, height = 12, scale = 0.4)
+
+
+## --------------------------------------------------------------------------------------------------------------------------------------------------
+all_pYsite_correlation_pearson <- qc_sample_correlation(
+  data = ascore_fasta_protein_mod_loc_pY_sum_psite %>% filter(!is.infinite(median_norm_intensity)),
+  sample = sample_id, 
+  grouping = ref,
+  method = "pearson",
+  intensity_log2 = median_norm_intensity,
+  condition = condition,
+  interactive = FALSE)
+
+
+all_pYsite_correlation_pearson
+
+ggsave("output/SuppFig2/all_pYsite_correlation_pearson.png", plot = all_pYsite_correlation_pearson, width = 20, height = 20, scale = 0.4)
+ggsave("output/SuppFig2/all_pYsite_correlation_pearson.pdf", plot = all_pYsite_correlation_pearson, width = 16, height = 12, scale = 0.4)
+
+
+## --------------------------------------------------------------------------------------------------------------------------------------------------
+all_pYsite_my_correlation_pearson <- my_hier_cluster(
+  data = ascore_fasta_protein_mod_loc_pY_sum_psite %>% filter(!is.infinite(median_norm_intensity)), #%>% 
+    # mutate(condition = fct_relevel(condition, "EGF0min", "EGF1min", "EGF3min", "EGF5min", "EGF15min"),
+    #        condition_numeric = case_when(
+    #          condition == "EGF0min" ~ 0,
+    #          condition == "EGF1min" ~ 1,
+    #          condition == "EGF3min" ~ 3,
+    #          condition == "EGF5min" ~ 5,
+    #          condition == "EGF15min" ~ 15),
+    #        sample_id = fct_reorder(sample_id, condition_numeric)),
+  breaklist = seq(0.5, 1, by = 0.1),
+  sample = sample_id, 
+  grouping = ref,
+  display_nums = FALSE,
+  fontsize_number = 2,
+  number_color = "black",
+  method = "pearson",
+  intensity_log2 = median_norm_intensity,
+  condition = condition,
+  interactive = FALSE)
+
+
+all_pYsite_my_correlation_pearson
+
+ggsave("output/SuppFig2/all_pYsite_my_correlation_pearson.png", plot = all_pYsite_my_correlation_pearson, width = 20, height = 15, scale = 0.4)
+ggsave("output/SuppFig2/all_pYsite_my_correlation_pearson.pdf", plot = all_pYsite_my_correlation_pearson, width = 20, height = 15, scale = 0.4)
+

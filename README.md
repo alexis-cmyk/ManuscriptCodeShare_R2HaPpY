@@ -15,10 +15,13 @@ The codebase includes:
 - Processed data tables required for reproducing plots  
 
 Large raw CSV files (Comet search results, Ascore outputs, FASTA files, etc.) are not stored in the repository due to GitHub file-size limits, but are provided as release assets (see “Data availability” below).
-
+ - Additionally, directory structure for code outputs is included in the zipped file to be downloaded from `Releases`
+ 
+ 
+ 
 ## 🚀 Quick Start: Generate All Figures
 
-Download the raw_data, output, and modified_data zip files from `Releases` and place in this R project directory.
+Download the zip file containing folders raw_data/, output/, and modified_data/ from `Releases` and place in this R project directory.
 Then, run this single command in your R console (inside the R project):
 
 ```r
@@ -62,9 +65,10 @@ Processed and intermediate data tables used in the figure-generation scripts (e.
 ## Reproducing figures
 
 All figures in the manuscript reliant on custom code can be regenerated using:
+- Download and unzip file from Releases section into your local clone of this RProject: *raw_data/*, *output/*, *modified_data/*
+  - [!TIP] *output/* and *modified_data/* folders are empty, while *raw_data/* is populated.
 
-
-- Individual figure-specific scripts titled by figure(s).
+- Individual figure-specific scripts can be run in isolation.
   - Figures are deposited into figure-specific sub-directories within `output`
   - Tables are deposited into figure-specific sub-directories within `modified_data`
 
@@ -87,5 +91,7 @@ renv::restore()
 ## Contact Information
 
 Judit Villen Laboratory
+
 Genome Sciences, University of Washington, Seattle
+
 **[See more from the Villen lab ](https://villenlab.gs.washington.edu/wordpress/)**

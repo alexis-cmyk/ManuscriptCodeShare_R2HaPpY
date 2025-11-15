@@ -1,0 +1,205 @@
+## ----setup, include=FALSE--------------------------------------------------------------------------------------------------------------------------
+knitr::opts_chunk$set(echo = TRUE)
+
+
+## --------------------------------------------------------------------------------------------------------------------------------------------------
+alexis_theme <- function() {
+  theme(
+    # panel.border = element_rect(colour = "blue", fill = NA, linetype = 2),
+    panel.border = element_blank(),
+    panel.background = element_blank(),
+    panel.grid.major.x  = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.text.x = element_text(angle = 90, vjust = 0.25, hjust = 1),
+    axis.line = element_line(colour = "black"),
+    axis.text = element_text(colour = "black", face = "plain", family = "sans"),
+    axis.title = element_text(colour = "black", family = "sans"),
+    axis.ticks = element_line(colour = "black"),
+    title = element_text(size = 8, hjust = 0.5),
+    # legend at the bottom 6)
+    legend.position = "right")   
+}
+
+
+## --------------------------------------------------------------------------------------------------------------------------------------------------
+EGF100nM <- read_csv(file = "raw_data/MainFig3to6_SuppFig9to15/Reddy2016/EGF100nM.csv") %>% 
+  clean_names() %>% 
+
+    mutate(mod_res = str_extract_all(sites, "[STY]"),
+         mod_loc = str_remove_all(sites, "[pSTY]"),
+         direction_1min = case_when(
+           x60s - x0s > 0 ~ "up",
+           x60s - x0s < 0~ "down",
+           TRUE ~ "unchanged"))%>%
+  
+  filter(grepl("Y", mod_res) == TRUE) #isoform must contain at least one pY site
+
+
+#intermediate df for joining zscore + stdev---------------------------
+EGF100nM_longer_zscore <- EGF100nM %>% 
+  pivot_longer(cols = c(x0s:x80s), names_to = "time_point", values_to = "zscore") %>% 
+  select(-c(x0s_stdev:x80s_stdev))
+
+EGF100nM_longer_SD <-  EGF100nM %>% 
+  pivot_longer(cols = c(x0s_stdev:x80s_stdev), names_to = "time_point", values_to = "stdev") %>% 
+  select(-c(x0s:x80s)) %>% 
+  mutate(time_point = str_sub(time_point, end = -7L ))
+
+
+#master df for plotting --------------------------------
+EGF100nM_longer <- EGF100nM_longer_zscore %>% 
+  left_join(y = EGF100nM_longer_SD)  %>% 
+  mutate(time_point_numeric = as.numeric(str_remove_all(time_point, "[xs]")),
+         gene_ref = paste(protein_short," ", str_remove_all(sites, "[p]"), sep = "" ))
+
+
+
+
+
+
+
+## --------------------------------------------------------------------------------------------------------------------------------------------------
+#All pY site detections in our data ------------------------------
+AllpYSitesInOurStudy <- read_csv("modified_data/MainFig3to6_SuppFig9to15/pTyrSiteLevel/AllpYSiteDetections_CompareToOtherStudies.csv")
+
+#Only differentially regulated pY sites in our data ---------------------
+psite_diff_abundance_gene_2xDB_imputed_forvolcano <- read_csv("modified_data/MainFig3to6_SuppFig9to15/pTyrSiteLevel/psite_diff_abundance_gene_2xDB_imputed_forvolcano.csv")
+
+
+## --------------------------------------------------------------------------------------------------------------------------------------------------
+lineplot_gene_psite_function <- function(vector_gene_refs, dataframe, output_dir = "output/MainFig3to6_SuppFig9to15/Reddy2016Comparison/", condition = condition, sample_id = sample_id, strip_color = "gray80", strip_text_color = "black"){
+
+  #create output directory if it doesn't exist already
+  if (!dir.exists(output_dir)){
+    dir.create(output_dir)}
+  
+  for (gene_var in vector_gene_refs) {
+    if(gene_var %in% dataframe$gene_ref) {
+      
+      #create boxplot for any sites in each gene
+      p <- ggplot() + 
+        geom_line(data = dataframe %>% filter(gene_ref == gene_var),
+                      mapping = aes(x = time_point_numeric, y = zscore)) +
+        geom_errorbar(data = dataframe %>% filter(gene_ref == gene_var),
+                      mapping = aes(x = time_point_numeric, y = zscore, ymax = zscore+stdev, ymin = zscore-stdev)) +
+        
+        alexis_theme() +
+        
+        facet_wrap(facets = vars(gene_ref), nrow = 4) +
+        scale_y_continuous(name = expression("scaled intensity"), expand = c(0.05,0.2))  +
+        xlab("EGF duration (sec)") +
+        
+        theme(
+          strip.background = element_rect(fill = adjustcolor(strip_color, alpha.f = 1)),
+          
+          strip.text = element_text(size = 16, face = "bold", family = "sans", color = strip_text_color)) 
+      
+      # save the plot as PNG & PDF
+      ggsave(filename = file.path(output_dir, paste0(gene_var, "_EGF100nM.png")), plot = p, width = 8, height = 8, scale = 0.4)
+      ggsave(filename = file.path(output_dir, paste0(gene_var, "_EGF100nM.pdf")), plot = p, width = 8, height = 8, scale = 0.4)
+      
+    } else { 
+      message (paste("Gene", gene_var, "not found in the dataframe."))
+      
+      }
+    }
+}
+
+
+
+## --------------------------------------------------------------------------------------------------------------------------------------------------
+
+lineplot_gene_psite_function( vector_gene_refs = (EGF100nM_longer %>% distinct(gene_ref))$gene_ref,
+                              strip_text_color = "white",
+                             dataframe = EGF100nM_longer, output_dir = "output/MainFig3to6_SuppFig9to15/Reddy2016Comparison/", strip_color = "black")
+
+
+
+
+## --------------------------------------------------------------------------------------------------------------------------------------------------
+net_pY_sites_Reddy2016_EGF100nM <- EGF100nM %>% 
+  distinct(protein_short, sites)
+
+write_csv(x = net_pY_sites_Reddy2016_EGF100nM, file = "modified_data/MainFig3to6_SuppFig9to15/Reddy2016Comparison/net_pY_sites_Reddy2016_EGF100nM.csv")
+
+
+## --------------------------------------------------------------------------------------------------------------------------------------------------
+id_mapping <- read_csv(file = "raw_data/MainFig3to6_SuppFig9to15/Reddy2016/ID_mapping_20250424.csv") %>% 
+  group_by(gene) %>% 
+  mutate(
+    reference_number = row_number()) %>% 
+  filter(reference_number == min(reference_number)) %>% 
+  ungroup() %>% 
+  rename(protein_short = from) %>% 
+  select(-reference_number)
+
+#append modern gene and reference names for matching to my database:
+
+net_pY_sites_Reddy2016_EGF100nM_idmapped <- net_pY_sites_Reddy2016_EGF100nM %>% 
+  left_join(id_mapping, by = c("protein_short")) %>% 
+  mutate(psite = str_remove_all(sites, "[p]"))
+
+
+## --------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+our_data <- psite_diff_abundance_gene_2xDB_imputed_forvolcano %>% 
+  filter(my_data == TRUE) %>% 
+  distinct(gene, psite, gene_ref, reference, my_data)
+
+comparison <- our_data %>% 
+  full_join(y = net_pY_sites_Reddy2016_EGF100nM_idmapped %>% mutate(Reddy = TRUE), by = c("reference", "gene", "psite")) %>% 
+  mutate(
+    overlap  = case_when(
+      my_data == TRUE & Reddy == TRUE ~ "both", 
+      my_data == TRUE & is.na(Reddy) ~ "this\nstudy",
+      is.na(my_data) & Reddy == TRUE ~ "Reddy et al.\n2016"))
+
+comparison_summary <- comparison %>% group_by(overlap) %>% summarize(n_pYsites = n()) %>% ungroup()
+
+#plot ----------------------
+plot_comparison_Reddy_vs_Us <-ggplot(data = comparison %>% group_by(overlap) %>% summarize(n_pYsites = n()) %>% ungroup()) +
+  geom_col(mapping = aes(x = overlap, y = n_pYsites), width = 0.8) +
+  geom_text(mapping = aes(x = overlap, y = n_pYsites - 25, label = paste0(n_pYsites)), color = "white", fontface = "bold", size = 4) +
+  alexis_theme() +
+  theme(
+    axis.text.x = element_text(size = 10, vjust = 1, hjust = 0.5) ) +
+  ylab("unique pY sites") +
+  xlab("intersection") 
+
+plot_comparison_Reddy_vs_Us
+
+ggsave(filename = "output/MainFig3to6_SuppFig9to15/Reddy2016Comparison/plot_comparison_Reddy_vs_Us_EGF100nM.png", plot = plot_comparison_Reddy_vs_Us, width = 7, height = 8, scale = 0.4)
+
+
+## --------------------------------------------------------------------------------------------------------------------------------------------------
+our_data_detected <- AllpYSitesInOurStudy %>%
+  filter(grepl("Y", psite) == TRUE) %>% 
+  mutate(my_data = TRUE) %>% 
+  distinct(reference,psite, my_data)
+
+comparison_detected <- our_data_detected %>% 
+  full_join(y = net_pY_sites_Reddy2016_EGF100nM_idmapped %>% mutate(Reddy = TRUE), by = c("reference", "psite")) %>% 
+  mutate(
+    overlap  = case_when(
+      my_data == TRUE & Reddy == TRUE ~ "both", 
+      my_data == TRUE & is.na(Reddy) ~ "this\nstudy",
+      is.na(my_data) & Reddy == TRUE ~ "Reddy et al.\n2016"))
+
+comparison_summary_detected <- comparison_detected %>% group_by(overlap) %>% summarize(n_pYsites = n()) %>% ungroup()
+
+#plot ----------------------
+plot_comparison_Reddy_vs_Us_detected <-ggplot(data = comparison_detected %>% group_by(overlap) %>% summarize(n_pYsites = n()) %>% ungroup()) +
+  geom_col(mapping = aes(x = overlap, y = n_pYsites), width = 0.8) +
+  geom_text(mapping = aes(x = overlap, y = n_pYsites - 25, label = paste0(n_pYsites)), color = "white", fontface = "bold", size = 4) +
+  alexis_theme() +
+  theme(
+    axis.text.x = element_text(size = 10, vjust = 1, hjust = 0.5) ) +
+  ylab("unique pY sites") +
+  xlab("intersection") #+
+  # scale_y_continuous(limits = c(0, 700), breaks = c(seq(0,700, 100)), expand = c(0,0))
+
+plot_comparison_Reddy_vs_Us_detected
+
+ggsave(filename = "output/MainFig3to6_SuppFig9to15/Reddy2016Comparison/plot_comparison_Reddy_vs_Us_EGF100nM_detected.png", plot = plot_comparison_Reddy_vs_Us_detected, width = 7, height = 8, scale = 0.4)
+
