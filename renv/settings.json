@@ -19,6 +19,7 @@
     "grid",
     "KernSmooth",
     "lattice",
+    "limma",
     "MASS",
     "Matrix",
     "methods",
