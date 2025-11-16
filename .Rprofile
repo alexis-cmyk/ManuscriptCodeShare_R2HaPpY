@@ -36,7 +36,9 @@ if (!requireNamespace("yaml", quietly = TRUE)) {
   )
 }
 
-
+# Disable renv Bioconductor integration completely
+options(renv.bioconductor.enabled = FALSE)
+options(renv.config.bioconductor = FALSE)
 
 if (file.exists("renv/activate.R"))
   source("renv/activate.R")
