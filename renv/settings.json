@@ -4,7 +4,8 @@
   "ignored.packages": [
     "Matrix",
     "boot",
-    "biomaRt"
+    "biomaRt",
+    "DBI@1.2.3"
   ],
   "package.dependency.fields": [
     "Imports",
