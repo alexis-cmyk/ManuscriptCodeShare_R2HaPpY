@@ -1,3 +1,10 @@
+#Force known good repositories for renv boostrap
+options(repos = c(CRAN = "https://cran.r-project.org"))
+
+#Ensure renv uses a working download method. Choose the one that works for install.packages() on your computer
+options(renv.download.method = "libcurl")   # OR "wininet"
+
+
 # Use CRAN + Bioconductor 3.22 repos
 options(repos = c(
   CRAN       = "https://cran.r-project.org",
@@ -21,4 +28,5 @@ options(
 
 
 
-source("renv/activate.R")
+if (file.exists("renv/activate.R"))
+  source("renv/activate.R")

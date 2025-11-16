@@ -27,6 +27,16 @@ options(
 )
 
 
+# Ensure 'yaml' is available (needed by rmarkdown/knitr and renv dependency parsing)
+if (!requireNamespace("yaml", quietly = TRUE)) {
+  message("Installing 'yaml' (needed for this project)...")
+  try(
+    install.packages("yaml", repos = "https://cran.r-project.org"),
+    silent = TRUE
+  )
+}
+
+
 
 if (file.exists("renv/activate.R"))
   source("renv/activate.R")
