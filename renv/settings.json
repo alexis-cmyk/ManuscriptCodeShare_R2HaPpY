@@ -2,7 +2,9 @@
   "bioconductor.version": "3.22",
   "external.libraries": [],
   "ignored.packages": [
-    "Matrix"
+    "Matrix",
+    "boot",
+    "biomaRt"
   ],
   "package.dependency.fields": [
     "Imports",

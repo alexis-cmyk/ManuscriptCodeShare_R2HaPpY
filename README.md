@@ -129,6 +129,30 @@ _This will:_
 
 All Bioconductor repositories (3.22) are automatically configured via the project’s .Rprofile.
 
+
+Open R in the project folder.
+
+Run:
+
+source("00_setup_environment.R")
+
+
+Restart R (or just reopen the project).
+
+Run:
+
+renv::restore()
+
+
+After renv::restore() finishes successfully, run:
+
+source("00_master_run_all_figures.R")
+
+
+
+
+
+
 #### 4. Begin working
 
 Once the restore completes, you can run all R scripts, R Markdown files, and Shiny applications using the exact package versions used originally.
