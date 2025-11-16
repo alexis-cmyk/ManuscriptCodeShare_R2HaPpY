@@ -11,3 +11,4 @@ if (!requireNamespace("renv", quietly = TRUE)) {
 }
 
 message("Setup complete. Now restart R in this project and run renv::restore().")
+
