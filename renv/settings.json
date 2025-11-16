@@ -5,7 +5,8 @@
     "Matrix",
     "boot",
     "biomaRt",
-    "DBI@1.2.3"
+    "DBI@1.2.3",
+    "DBI"
   ],
   "package.dependency.fields": [
     "Imports",
