@@ -67,6 +67,7 @@ This project was developed and tested using:
 
 Matching these versions ensures compatibility with the **renv** lockfile.
 
+- [Download R version 4.4.2 here](https://https://cran.r-project.org/bin/windows/base/old/4.4.2/)
 ---
 
 ## 3. Initialize Environment
@@ -126,7 +127,7 @@ Detailed laboratory procedures—including SH2 Superbinder expression, bead prep
 
 Raw phosphoproteomics and proteome CSVs:
 
-* **[R2HaPpY raw data (v1.0)](https://github.com/alexis-cmyk/ManuscriptCodeShare_R2HaPpY/releases/tag/v1.0.1-InputData_and_OutputFolders)**
+**[Download Raw Data (v1.0.1)](https://github.com/alexis-cmyk/ManuscriptCodeShare_R2HaPpY/releases/tag/v1.0.1-InputData_and_OutputFolders)**
 
 Each archive contains Comet outputs, AScore assignments, peptide redundancy tables, and required metadata.
 
