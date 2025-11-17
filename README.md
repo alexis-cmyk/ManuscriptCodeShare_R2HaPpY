@@ -48,7 +48,7 @@ Large raw datasets (Comet results, AScore tables, FASTA files) are provided sepa
 
 ## 1. Download Input Files
 
-Download the Release archive containing:
+Download the [Release archive](https://github.com/alexis-cmyk/ManuscriptCodeShare_R2HaPpY/releases/tag/v1.0.1-InputData_and_OutputFolders) containing:
 
 * **raw_data/**
 * **modified_data/**
