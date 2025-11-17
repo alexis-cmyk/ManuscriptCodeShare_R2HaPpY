@@ -28,13 +28,23 @@ if (!requireNamespace("BiocManager", quietly = TRUE)) {
 # options(repos = BiocManager::repositories(version = "3.19"))
 
 # ---------------------------------------------------------
-# Install limma if missing
+# Helper: install package if missing
 # ---------------------------------------------------------
-if (!requireNamespace("limma", quietly = TRUE)) {
-  BiocManager::install("limma")
+install_if_missing <- function(pkg) {
+  if (!requireNamespace(pkg, quietly = TRUE)) {
+    BiocManager::install(pkg, ask = FALSE)
+  }
 }
+
+# ---------------------------------------------------------
+# Install Bioconductor packages
+# ---------------------------------------------------------
+install_if_missing("limma")
+install_if_missing("biomaRt")
+
 
 # Load package
 library(limma)
+library(biomaRt)
 message("Setup complete. Now restart R in this project and run renv::restore().")
 
