@@ -1,128 +1,147 @@
-#Phosphotyrosine Proteomics Using a Scalable SH2 Superbinder Enrichment Strategy
+---
 
+# Phosphotyrosine Proteomics Using a Scalable SH2 Superbinder Enrichment Strategy
 
-This repository contains all analysis scripts, figure-generation code, and processed data supporting:
+[![R Version](https://img.shields.io/badge/R-4.4.2-blue.svg)]()
+[![Bioconductor](https://img.shields.io/badge/Bioconductor-3.22-green.svg)]()
+[![Reproducibility](https://img.shields.io/badge/Reproducible-renv-orange.svg)]()
+[![License](https://img.shields.io/badge/License-MIT-lightgrey.svg)]()
+
+This repository contains all analysis scripts, figure-generation pipelines, and processed datasets supporting:
 
 **“Phosphotyrosine Proteomics Using a Scalable SH2 Superbinder Enrichment Strategy.”**
-**[BioRxiv Preprint](https://www.biorxiv.org/content/10.1101/2025.05.14.653984v1)**
+**[bioRxiv Preprint](https://www.biorxiv.org/content/10.1101/2025.05.14.653984v1)**
 
 <img src="./README_VisualAbstract.png" width="650">
 
-## 🔗 Quick Navigation
+---
 
-- Installation & Execution
+# Table of Contents
 
-- Interactive Dataset
+1. [Repository Overview](#repository-overview)
+2. [Installation & Execution](#installation--execution)
 
-- Experimental Protocols
+   * [1. Download Input Files](#1-download-input-files)
+   * [2. Install Required R Version](#2-install-required-r-version)
+   * [3. Initialize Environment](#3-initialize-environment)
+   * [4. Restore Software Environment](#4-restore-software-environment)
+   * [5. Generate All Figures](#5-generate-all-figures)
+3. [Interactive Dataset](#interactive-dataset)
+4. [Experimental Protocols](#experimental-protocols)
+5. [Data Availability](#data-availability)
+6. [Contact](#contact)
 
-- Data Availability
+---
 
-- Contact
+# Repository Overview
 
-## 📦 Repository Overview
+* R scripts for phosphopeptide, phosphoproteome, and proteome data analysis
+* Code to generate all main and supplementary figures
+* Processed data tables required for reproducibility
+* Expected output directory structure
 
-- R scripts for phosphopeptide, phosphoproteome, and proteome data processing
+Large raw datasets (Comet results, AScore tables, FASTA files) are provided separately as GitHub Release assets.
 
-- Code for generating all main and supplementary manuscript figures
+---
 
-- Processed data tables required for analysis reproducibility
+# Installation & Execution
 
-- Expected output directory structure
+## 1. Download Input Files
 
-- Large raw datasets (Comet outputs, Ascore assignments, FASTAs) are provided as GitHub Release assets.
+Download the Release archive containing:
 
-## ⚙️ Installation & Execution
-<details> <summary><strong>Click to expand instructions</strong></summary>
-### 1. <u>Download Input Files</u>
+* **raw_data/**
+* **modified_data/**
+* **output/**
 
-- Download the Release archive containing the folders:
+Place all directories in the project root.
 
-  - raw_data/
+---
 
-  - modified_data/
+## 2. Install Required R Version
 
-  - output/
+This project was developed and tested using:
 
-- Place all directories in the project root.
+* **R 4.4.2**
+* **Bioconductor 3.22**
 
-### 2. <u>Install Required R Version</u>
+Matching these versions ensures compatibility with the **renv** lockfile.
 
-- This project was developed using:
+---
 
-  - **R 4.4.2**
+## 3. Initialize Environment
 
-  - **Bioconductor 3.22**
+From the project directory:
 
-  _- Matching these versions ensures compatibility with the renv.lock file._
+```r
+source("00_setup_environment.R")
+```
 
-### 3. <u>Initialize Environment</u>
+Restart R after running this script.
 
-From the project directory, run:
+---
 
-`source("00_setup_environment.R")`
+## 4. Restore Software Environment
 
+```r
+renv::restore()
+```
 
-Restart R after this step.
+This installs all CRAN and Bioconductor packages pinned in the `renv.lock` file.
 
-### 4. <u>Restore Software Environment</u>
+---
 
-`renv::restore()`
+## 5. Generate All Figures
 
+```r
+source("00_master_run_all_figures.R")
+```
 
-- This installs all CRAN and Bioconductor packages pinned in the lockfile.
+Outputs:
 
-### 5. <u>Generate All Manuscript Figures</u>
-`source("00_master_run_all_figures.R")`
+* Figures → **output/** subdirectories
+* Intermediate tables → **modified_data/** subdirectories
 
+---
 
-- Figures will be saved into subdirectories of output/
+# Interactive Dataset
 
-- Intermediate tables appear in modified_data/
+A browser-based interactive version of the R2HaPpY dataset is available at:
 
-</details>
-## 🌐 Interactive Dataset
-<details> <summary><strong>Launch the interactive web application</strong></summary>
+➡ **[https://r2happy.gs.washington.edu](https://r2happy.gs.washington.edu)**
 
-Explore the full R2HaPpY phosphotyrosine dataset, including phosphosite dynamics, gene-level filtering, replicate comparisons, and functional annotation:
+This site supports phosphosite-level browsing, replicate comparison, gene filtering, and functional annotation.
 
-➡ **https://r2happy.gs.washington.edu**
+---
 
-</details>
-## 🧪 Experimental Protocols
-<details> <summary><strong>View experimental workflow</strong></summary>
+# Experimental Protocols
 
-Full experimental protocols (SH2 Superbinder expression, bead preparation, enrichment, LC-MS/MS acquisition) are available on protocols.io:
+Detailed laboratory procedures—including SH2 Superbinder expression, bead preparation, enrichment, and LC-MS/MS acquisition—are available at:
 
-➡ Protocols.io Link
+➡ **[Protocols.io](https://www.protocols.io/private/48FD48C3977A11F0A3900A58A9FEAC02)**
 
-</details>
-## 📁 Data Availability
-<details> <summary><strong>Download raw and processed datasets</strong></summary>
+---
 
-Raw proteome and phosphoproteome CSVs:
+# Data Availability
 
-**[R2HaPpY raw data (v1.0.1 )](https://github.com/alexis-cmyk/ManuscriptCodeShare_R2HaPpY/releases/tag/v1.0.1-InputData_and_OutputFolders)**
+Raw phosphoproteomics and proteome CSVs:
 
-- The zip archive includes:
+* **[R2HaPpY raw data (v1.0)](https://github.com/alexis-cmyk/ManuscriptCodeShare_R2HaPpY/releases/tag/v1.0.1-InputData_and_OutputFolders)**
 
-  - Search-engine outputs (Comet)
-  
-  - Ascore assignments
-  
-  - Peptide-level redundancy mappings
-  
-  - Required metadata
-  
-  - Directory structure for figure and table outputs
-  
-**Unzip and place the three folders (raw_data/ , output/ , and modified_data/) into this project directory.
+Each archive contains Comet outputs, AScore assignments, peptide redundancy tables, and required metadata.
 
-</details>
-## 📫 Contact
+Processed datasets required by figure scripts are included under **modified_data/**.
 
-Alexis Chang
+---
+
+# Contact
+
+**Alexis Chang**
 Villen Laboratory, Genome Sciences
 University of Washington, Seattle
 
-Lab website: https://villenlab.gs.washington.edu/wordpress/
+Lab website: **[https://villenlab.gs.washington.edu/wordpress/](https://villenlab.gs.washington.edu/wordpress/)**
+
+---
+
+
