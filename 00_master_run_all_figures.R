@@ -1,6 +1,6 @@
 ### This RScript points to each figure-specific script to run sequentially with one line ### -----------
 ###  To run this code, in console within this Rproject, run: source("00_master_run_all_figures.R")
-
+library(dplyr)
 
 source(knitr::purl("01_Script_MainAndSuppFig1_NHS_vs_Halo_1mgInput_Triplicate.Rmd"))
 source(knitr::purl("02_Script_MainFig2_VaryPeptideConcentration_HighpTyrContent.Rmd"))
