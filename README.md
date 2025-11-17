@@ -22,9 +22,10 @@ Large raw CSV files (Comet search results, Ascore outputs, FASTA files, etc.) ar
 ## 🚀 Quick Start: Generate All Figures
 
 Download the zip file containing folders raw_data/, output/, and modified_data/ from `Releases` and place in this R project directory.
-Then, run this single command in your R console (inside the R project):
+Then, run these two commands in your R console (inside the R project):
 
 ```r
+renv::restore()
 source("00_master_run_all_figures.R")
 ```
 
@@ -66,7 +67,7 @@ Processed and intermediate data tables used in the figure-generation scripts (e.
 
 All figures in the manuscript reliant on custom code can be regenerated using:
 - Download and unzip file from Releases section into your local clone of this RProject: *raw_data/*, *output/*, *modified_data/*
-  - **TIP:** *output/* and *modified_data/* folders are empty, while *raw_data/* is populated.
+  - **TIP** *output/* and *modified_data/* folders are empty, while *raw_data/* is populated.
 
 - Individual figure-specific scripts can be run in isolation.
   - Figures are deposited into figure-specific sub-directories within `output`
@@ -87,6 +88,56 @@ To reproduce the full environment:
 ```{r}
 renv::restore()
 ```
+---
+### 🔧 Reproducing the R Environment (renv)
+
+This project uses renv to provide a fully reproducible R environment, including exact package versions for **R 4.5.1** and **Bioconductor 3.22**.
+To recreate the environment on any system:
+
+#### 1. Install the required R version
+
+This project was developed using:
+
+- **R 4.4.2**
+
+- **Bioconductor 3.22**
+
+  - Download R 4.5.1: https://https://cran.r-project.org/bin/windows/base/old/4.4.2/
+
+    - Using the matching R version ensures renv::restore() works without package conflicts.
+
+#### 2. Install renv and yaml
+
+_Inside R (from the project directory), run:_
+`source("00_setup_environment.R")`
+
+- restart R
+
+#### 3. Restore the environment
+
+_Run:_
+
+`renv::restore()`
+
+
+_This will:_
+
+- Read the renv.lock file
+
+- Install all required CRAN and Bioconductor packages
+
+- Recreate the exact software environment used for all analyses and figures
+
+#### 4. After renv::restore() finishes successfully, run:
+
+source("00_master_run_all_figures.R")
+
+- This runs all scripts to generate figures and places them in the directory structure you should have unzipped from Releases.
+
+
+
+
+
 ---
 ## Contact Information
 
