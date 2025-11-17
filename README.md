@@ -1,99 +1,95 @@
-Phosphotyrosine Proteomics Using a Scalable SH2 Superbinder Enrichment Strategy
-
-
-
-
-
-
+#Phosphotyrosine Proteomics Using a Scalable SH2 Superbinder Enrichment Strategy
 
 
 This repository contains all analysis scripts, figure-generation code, and processed data supporting:
 
-“Phosphotyrosine Proteomics Using a Scalable SH2 Superbinder Enrichment Strategy.”
-bioRxiv Preprint
+**“Phosphotyrosine Proteomics Using a Scalable SH2 Superbinder Enrichment Strategy.”**
+**[BioRxiv Preprint](https://www.biorxiv.org/content/10.1101/2025.05.14.653984v1)**
 
 <img src="./README_VisualAbstract.png" width="650">
-🔗 Quick Navigation
 
-Installation & Execution
+## 🔗 Quick Navigation
 
-Interactive Dataset
+- Installation & Execution
 
-Experimental Protocols
+- Interactive Dataset
 
-Data Availability
+- Experimental Protocols
 
-Contact
+- Data Availability
 
-📦 Repository Overview
+- Contact
 
-R scripts for phosphopeptide, phosphoproteome, and proteome data processing
+## 📦 Repository Overview
 
-Code for generating all main and supplementary manuscript figures
+- R scripts for phosphopeptide, phosphoproteome, and proteome data processing
 
-Processed data tables required for analysis reproducibility
+- Code for generating all main and supplementary manuscript figures
 
-Expected output directory structure
+- Processed data tables required for analysis reproducibility
 
-Large raw datasets (Comet outputs, AScore assignments, FASTAs) are provided as GitHub Release assets.
+- Expected output directory structure
 
-⚙️ Installation & Execution
+- Large raw datasets (Comet outputs, Ascore assignments, FASTAs) are provided as GitHub Release assets.
+
+## ⚙️ Installation & Execution
 <details> <summary><strong>Click to expand instructions</strong></summary>
-1. <u>Download Input Files</u>
+### 1. <u>Download Input Files</u>
 
-Download the Release archive containing the folders:
+- Download the Release archive containing the folders:
 
-raw_data/
+  - raw_data/
 
-modified_data/
+  - modified_data/
 
-output/
+  - output/
 
-Place all directories in the project root.
+- Place all directories in the project root.
 
-2. <u>Install Required R Version</u>
+### 2. <u>Install Required R Version</u>
 
-This project was developed using:
+- This project was developed using:
 
-R 4.4.2
+  - **R 4.4.2**
 
-Bioconductor 3.22
+  - **Bioconductor 3.22**
 
-Matching these versions ensures compatibility with the renv.lock file.
+  _- Matching these versions ensures compatibility with the renv.lock file._
 
-3. <u>Initialize Environment</u>
+### 3. <u>Initialize Environment</u>
 
 From the project directory, run:
 
-source("00_setup_environment.R")
+`source("00_setup_environment.R")`
 
 
 Restart R after this step.
 
-4. <u>Restore Software Environment</u>
-renv::restore()
+### 4. <u>Restore Software Environment</u>
+
+`renv::restore()`
 
 
-This installs all CRAN and Bioconductor packages pinned in the lockfile.
+- This installs all CRAN and Bioconductor packages pinned in the lockfile.
 
-5. <u>Generate All Manuscript Figures</u>
-source("00_master_run_all_figures.R")
+### 5. <u>Generate All Manuscript Figures</u>
+`source("00_master_run_all_figures.R")`
 
 
-Figures will be saved into subdirectories of output/
+- Figures will be saved into subdirectories of output/
 
-Intermediate tables appear in modified_data/
+- Intermediate tables appear in modified_data/
 
 </details>
-🌐 Interactive Dataset
+## 🌐 Interactive Dataset
 <details> <summary><strong>Launch the interactive web application</strong></summary>
 
 Explore the full R2HaPpY phosphotyrosine dataset, including phosphosite dynamics, gene-level filtering, replicate comparisons, and functional annotation:
 
-➡ https://r2happy.gs.washington.edu
+➡ **https://r2happy.gs.washington.edu**
 
 </details>
-🧪 Experimental Protocols
+## 🧪 Experimental Protocols
 <details> <summary><strong>View experimental workflow</strong></summary>
 
 Full experimental protocols (SH2 Superbinder expression, bead preparation, enrichment, LC-MS/MS acquisition) are available on protocols.io:
@@ -101,27 +97,29 @@ Full experimental protocols (SH2 Superbinder expression, bead preparation, enric
 ➡ Protocols.io Link
 
 </details>
-📁 Data Availability
+## 📁 Data Availability
 <details> <summary><strong>Download raw and processed datasets</strong></summary>
 
-Raw phosphoproteomics and proteome CSVs:
+Raw proteome and phosphoproteome CSVs:
 
-R2HaPpY raw data (v1.0)
+**[R2HaPpY raw data (v1.0.1 )](https://github.com/alexis-cmyk/ManuscriptCodeShare_R2HaPpY/releases/tag/v1.0.1-InputData_and_OutputFolders)**
 
-Each archive includes:
+- The zip archive includes:
 
-Search-engine outputs (Comet)
-
-AScore assignments
-
-Peptide-level redundancy mappings
-
-Required metadata
-
-Processed and intermediate data used by figure scripts are included in modified_data/ within this repository.
+  - Search-engine outputs (Comet)
+  
+  - Ascore assignments
+  
+  - Peptide-level redundancy mappings
+  
+  - Required metadata
+  
+  - Directory structure for figure and table outputs
+  
+**Unzip and place the three folders (raw_data/ , output/ , and modified_data/) into this project directory.
 
 </details>
-📫 Contact
+## 📫 Contact
 
 Alexis Chang
 Villen Laboratory, Genome Sciences
